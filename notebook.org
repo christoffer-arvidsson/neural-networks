@@ -27,7 +27,7 @@ mpl.rc('image', cmap='gray')
 
 Plot the dataset we are working with
 
-#+begin_src jupyter-python
+#+begin_src jupyter-python :file ./img/digits.png
 fig, axes = plt.subplots(1, len(digit_dataset))
 for i, ax in enumerate(axes):
     ax.imshow(digit_dataset[i], origin='upper')
@@ -36,7 +36,7 @@ plt.show()
 #+end_src
 
 #+RESULTS:
-[[file:./.ob-jupyter/b69766bb37130945b5cbd963e184dd953d8a4f1a.png]]
+[[file:./img/digits.png]]
 
 Train model
 
@@ -50,7 +50,7 @@ model.store(np.reshape(digit_dataset, (-1, N)))
 
 ** Feed different patterns
 
-#+begin_src jupyter-python
+#+begin_src jupyter-python :file ./img/morphed_patterns.png
 x1 = np.array([[1, 1, -1, -1, -1, -1, -1, -1, 1, 1], [-1, -1, 1, 1, 1, 1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, 1, 1, 1, 1, 1, 1, -1, -1], [-1, -1, 1, 1, 1, 1, 1, 1, -1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, 1, 1, 1, 1, 1, 1, 1, -1], [1, 1, -1, -1, -1, -1, -1, -1, 1, 1]])
 
 x2 = np.array([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, -1, -1, -1, -1, 1, 1, 1], [1, 1, -1, -1, -1, -1, -1, -1, 1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, 1, -1, -1, -1, -1, -1, -1, 1, 1], [1, 1, 1, -1, -1, -1, -1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
@@ -73,7 +73,7 @@ plt.show()
 #+end_src
 
 #+RESULTS:
-[[file:./.ob-jupyter/826d65359b3c82dde49bd67cfaba93d2d92226ec.png]]
+[[file:./img/morphed_patterns.png]]
 
 Print text for handin.
 #+begin_src jupyter-python
