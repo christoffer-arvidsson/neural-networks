@@ -1,0 +1,7 @@
+:PROPERTIES:
+:ID:       f51ca7bd-7625-484c-9a65-9a43a4ade4c7
+:END:
+#+filetags: :project:
+#+title: Hopfield network
+
+An implementation of hopfield networks, taught in an /artificial neural networks/ course at Chalmers.
