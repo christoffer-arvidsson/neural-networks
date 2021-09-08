@@ -1,16 +1,12 @@
 #+TITLE: Notebook
+#+property: header-args :session hopfield1
 
 Task is to store patterns of digits into a hopfield network, then try out which pattern different distorted patterns converge to.
 
+Load some libraries.
 #+begin_src jupyter-python
 import sys
 sys.path.append('src')
-#+end_src
-
-#+RESULTS:
-
-* Recognizing digits
-Load some libraries.
 
 #+begin_src jupyter-python
 from dataset import digit_dataset
@@ -22,6 +18,10 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 mpl.rc('image', cmap='gray')
 #+end_src
+
+#+RESULTS:
+
+* Recognizing digits
 
 #+RESULTS:
 
@@ -42,7 +42,7 @@ Train model
 
 #+begin_src jupyter-python
 N = np.size(digit_dataset[0])
-model = HopfieldNetwork(N, asynchronous=True)
+model = HopfieldNetwork(N, asynchronous=True, zero_diagonal=True, seed=None)
 model.store(np.reshape(digit_dataset, (-1, N)))
 #+end_src
 
@@ -50,7 +50,7 @@ model.store(np.reshape(digit_dataset, (-1, N)))
 
 ** Feed different patterns
 
-#+begin_src jupyter-python :file ./img/morphed_patterns.png
+#+begin_src jupyter-python :file ./img/morphed_patterns.png :results output
 x1 = np.array([[1, 1, -1, -1, -1, -1, -1, -1, 1, 1], [-1, -1, 1, 1, 1, 1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, 1, 1, 1, 1, 1, 1, -1, -1], [-1, -1, 1, 1, 1, 1, 1, 1, -1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, 1, 1, 1, 1, 1, 1, 1, -1], [1, 1, -1, -1, -1, -1, -1, -1, 1, 1]])
 
 x2 = np.array([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, -1, -1, -1, -1, 1, 1, 1], [1, 1, -1, -1, -1, -1, -1, -1, 1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, 1, -1, -1, -1, -1, -1, -1, 1, 1], [1, 1, 1, -1, -1, -1, -1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
@@ -62,7 +62,7 @@ patterns = [x1, x2, x3]
 fig, axes = plt.subplots(3,2)
 morphed_patterns = np.zeros_like(patterns, dtype=int)
 for i, pattern in enumerate(patterns):
-    morphed_patterns[i] = model.predict(pattern.reshape(-1), 1000, update_scheme='random').reshape(pattern.shape)
+    morphed_patterns[i] = model.predict(pattern.reshape(-1), 0, update_scheme='typewriter', stop_on_convergence=True).reshape(pattern.shape)
 
     ax1, ax2 = axes[i]
     ax1.imshow(pattern, origin='upper')
@@ -73,7 +73,10 @@ plt.show()
 #+end_src
 
 #+RESULTS:
+:RESULTS:
+: hello
 [[file:./img/morphed_patterns.png]]
+:END:
 
 Print text for handin.
 #+begin_src jupyter-python
@@ -132,3 +135,76 @@ array([[ 1,  1, -1, -1, -1, -1, -1, -1,  1,  1],
        [ 1,  1, -1, -1, -1, -1, -1, -1, -1,  1],
        [ 1,  1, -1, -1, -1, -1, -1, -1,  1,  1]])
 #+end_example
+
+* One-step error probability
+Generate random patterns
+#+begin_src jupyter-python
+N = 120
+prob = 1/2
+p = [12, 25, 58, 70, 100, 120]
+rng = np.random.default_rng()
+num_trials = 10**5
+
+def generate_patterns(num_patterns, num_bits, prob, rng):
+    """Generate binary patterns with probability."""
+    return rng.choice([-1,1], (num_patterns, num_bits), replace=True, p=[prob, 1-prob])
+
+#+end_src
+
+#+RESULTS:
+
+#+begin_src jupyter-python
+def perform_trials(patterns, num_trials, rng, zero_diagonal=True):
+    model = HopfieldNetwork(N, asynchronous=True, zero_diagonal=zero_diagonal)
+    model.store(np.reshape(patterns, (-1, N)))
+
+    chosen_patterns = rng.choice(patterns, (num_trials,), replace=True)
+    p_error = 0.0
+    for pattern in chosen_patterns:
+        morphed_pattern = model.predict(pattern, 1, update_scheme='random')
+        if not np.all(morphed_pattern == pattern):
+            p_error += 1.0
+
+    p_error /= num_trials
+
+    return p_error
+
+p_error_zeroed = np.zeros_like(p, dtype=float)
+for i, num_patterns in enumerate(p):
+    print(f'Running for p={num_patterns}...')
+    patterns = generate_patterns(num_patterns, N, prob, rng)
+    # p_error_zeroed[i] = perform_trials(patterns, num_trials, rng, zero_diagonal=True)
+    p_error_zeroed[i] = perform_trials(patterns, num_trials, rng, zero_diagonal=True)
+
+p_error_nonzeroed = np.zeros_like(p, dtype=float)
+for i, num_patterns in enumerate(p):
+    print(f'Running for p={num_patterns}...')
+    patterns = generate_patterns(num_patterns, N, prob, rng)
+    p_error_nonzeroed[i] = perform_trials(patterns, num_trials, rng, zero_diagonal=False)
+
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Running for p=12...
+Running for p=25...
+Running for p=58...
+Running for p=70...
+Running for p=100...
+Running for p=120...
+Running for p=12...
+Running for p=25...
+Running for p=58...
+Running for p=70...
+Running for p=100...
+Running for p=120...
+#+end_example
+
+ #+begin_src jupyter-python :results table
+print('Zeroed diagonal: ', p_error_zeroed)
+print('Nonzeroed diagonal: ', p_error_nonzeroed)
+ #+end_src
+
+ #+RESULTS:
+ : Zeroed diagonal:  [0.      0.01016 0.07838 0.10359 0.1407  0.15526]
+ : Nonzeroed diagonal:  [0.      0.00464 0.01166 0.01953 0.02035 0.02427]
