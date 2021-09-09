@@ -1,5 +1,6 @@
 #+TITLE: Notebook
-#+property: header-args :session hopfield1
+#+property: header-args :session hopfield
+
 
 Task is to store patterns of digits into a hopfield network, then try out which pattern different distorted patterns converge to.
 
@@ -10,7 +11,7 @@ sys.path.append('src')
 
 #+begin_src jupyter-python
 from dataset import digit_dataset
-from model import HopfieldNetwork
+from model import HopfieldNetwork, StochasticHopfieldNetwork
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -20,6 +21,90 @@ mpl.rc('image', cmap='gray')
 #+end_src
 
 #+RESULTS:
+
+* Stochastic Hopfield network
+#+begin_src jupyter-python
+def generate_patterns(num_patterns, num_bits, prob, rng):
+    """Generate binary patterns with probability."""
+    return rng.choice([-1,1], (num_patterns, num_bits), replace=True, p=[prob, 1-prob])
+
+seed = 1;
+rng = np.random.default_rng(seed=seed)
+noise_parameter = 2
+N = 200
+p = 7
+num_updates = 2*10**1
+num_experiments = 2
+
+order_parameters = np.zeros(num_experiments, dtype=float)
+
+model = StochasticHopfieldNetwork(N, noise_parameter, seed=seed, asynchronous=True, zero_diagonal=True)
+print('Running trial: ', end='')
+for i in range(num_experiments):
+    if i % 10 == 0:
+        print(f'{i}, ', end='')
+
+    patterns = generate_patterns(p, N, 1/2, rng)
+    model.store(patterns)
+
+    _, order_parameters[i] = model.predict(patterns[0], num_updates, update_scheme='random', stop_on_convergence=False)
+
+print('done.')
+
+#+end_src
+
+#+RESULTS:
+:RESULTS:
+: Running trial: 0, 0.016956535510200765
+# [goto error]
+#+begin_example
+
+IndexErrorTraceback (most recent call last)
+<ipython-input-2-9556c6e7126f> in <module>
+     22     model.store(patterns)
+     23
+---> 24     _, order_parameters[i] = model.predict(patterns[0], num_updates, update_scheme='random', stop_on_convergence=False)
+     25
+     26 print('done.')
+
+~/Dropbox/org/orbit/articles/project/hopfield_network/src/model.py in predict(self, pattern, iterations, update_scheme, stop_on_convergence)
+     95
+     96             # Order parameter
+---> 97             order_parameters[bi+1] = (1/self.pattern_size) * np.sum(new_pattern * pattern)
+     98
+     99         order_parameter = (1/iterations) * np.sum(order_parameters)
+
+IndexError: index 95 is out of bounds for axis 0 with size 21
+#+end_example
+:END:
+
+
+#+begin_src jupyter-python
+print(order_parameters)
+print(f'Average order parameter: {np.mean(order_parameters)}')
+#+end_src
+
+#+RESULTS:
+#+begin_example
+[-2.605e-05 -3.440e-05  3.350e-06 -1.310e-05  2.550e-05  3.185e-05
+ -9.950e-06 -1.955e-05  2.160e-05 -2.740e-05 -1.390e-05 -2.980e-05
+ -2.640e-05  1.195e-05 -1.310e-05 -3.800e-06  8.550e-06  9.900e-06
+ -1.935e-05 -1.940e-05  1.060e-05  4.450e-05  1.830e-05 -2.300e-06
+ -2.220e-05  4.660e-05  2.400e-05 -1.955e-05  1.690e-05 -9.050e-06
+ -1.150e-05 -4.000e-06  2.000e-06  5.450e-06 -8.500e-07  1.910e-05
+  1.655e-05 -1.100e-05  7.200e-06  7.050e-06  2.765e-05  3.600e-06
+ -3.560e-05  1.200e-06  3.800e-06  1.700e-06  7.000e-07  1.400e-05
+ -1.635e-05  1.165e-05 -1.110e-05 -1.635e-05  1.165e-05  4.600e-06
+ -7.650e-06 -2.060e-05 -1.195e-05  2.000e-07 -3.800e-06  1.060e-05
+ -6.150e-06 -2.060e-05  8.400e-06 -2.275e-05  3.570e-05  2.040e-05
+ -3.595e-05 -1.205e-05 -2.760e-05  6.000e-07 -3.100e-05  2.775e-05
+ -1.915e-05 -4.845e-05  2.200e-06 -2.235e-05 -5.960e-05 -1.880e-05
+ -4.325e-05  1.450e-05  5.300e-06  2.170e-05  1.350e-05 -4.050e-06
+  2.025e-05  1.500e-06  1.575e-05 -1.530e-05 -2.005e-05 -2.000e-05
+  2.615e-05 -1.500e-07 -9.300e-06  1.245e-05  7.500e-06  3.720e-05
+ -1.995e-05  1.580e-05  3.365e-05  1.845e-05]
+Average order parameter: -1.555e-06
+#+end_example
 
 * Recognizing digits
 
@@ -206,5 +291,5 @@ print('Nonzeroed diagonal: ', p_error_nonzeroed)
  #+end_src
 
  #+RESULTS:
- : Zeroed diagonal:  [0.      0.01016 0.07838 0.10359 0.1407  0.15526]
- : Nonzeroed diagonal:  [0.      0.00464 0.01166 0.01953 0.02035 0.02427]
+ : Zeroed diagonal:  [0.00125 0.01334 0.07872 0.09861 0.13276 0.15896]
+ : Nonzeroed diagonal:  [0.      0.00353 0.02048 0.01603 0.02136 0.02001]
