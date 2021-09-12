@@ -4,14 +4,14 @@ import numpy as np
 class HopfieldNetwork:
     def __init__(self, pattern_size, seed=12345, asynchronous=True, zero_diagonal=False):
         self.pattern_size = pattern_size # N in book
-        self.weights = np.zeros((pattern_size, pattern_size))
+        self.weights = np.zeros((pattern_size, pattern_size), dtype=float)
         self.rng = np.random.default_rng(seed=seed)
         self.threshold = 0
         self.zero_diagonal = zero_diagonal
         self.asynchronous = asynchronous
 
     def store(self, pattern):
-        """Store a pattern, expect flat array."""
+        """Store a set of patterns, shape (pattern, bits)"""
         # Update weights according to Hebb's rule
         N = self.pattern_size
 
@@ -27,9 +27,6 @@ class HopfieldNetwork:
 
     def update_rule(self, local_field):
         return np.sign(local_field)
-
-    def update(self):
-        """Perform one update, either asynchronously or synchronously"""
 
     def predict(self, pattern, iterations, update_scheme='random', stop_on_convergence=False):
         """Morph a pattern into the closest minimum of the energy function."""
@@ -55,7 +52,6 @@ class HopfieldNetwork:
                         stop = True
                         break
             if stop:
-                print('hello')
                 break
 
         # Case of sgn(0), np.sign sets these elements to 0, so set them to 1
@@ -71,9 +67,8 @@ class StochasticHopfieldNetwork(HopfieldNetwork):
 
     def update_rule(self, local_field):
         p = 1/(1 + np.exp(-2*self.noise_parameter*local_field))
-        print(p)
         r = self.rng.random()
-        return 1 if r > p else -1
+        return 1 if r < p else -1
 
     def predict(self, pattern, iterations, update_scheme='random', stop_on_convergence=False):
         """Morph a pattern into the closest minimum of the energy function."""
@@ -81,11 +76,13 @@ class StochasticHopfieldNetwork(HopfieldNetwork):
         if update_scheme == 'random':
             bit_indices = self.rng.choice(np.arange(self.pattern_size), size=(iterations,), replace=True)
         elif update_scheme == 'typewriter':
-            bit_indices = np.arange(pattern.size * 2) % self.pattern_size
+            bit_indices = np.arange(iterations) % self.pattern_size
 
         order_parameters = np.zeros(iterations+1, dtype=float)
+        order_parameters[0] = 1.0
         new_pattern = np.copy(pattern);
-        for bi in bit_indices:
+        for i in range(iterations):
+            bi = bit_indices[i]
             if self.asynchronous:
                 local_field = np.sum(self.weights[bi] * new_pattern)
             else:
@@ -94,7 +91,7 @@ class StochasticHopfieldNetwork(HopfieldNetwork):
             new_pattern[bi] = self.update_rule(local_field)
 
             # Order parameter
-            order_parameters[bi+1] = (1/self.pattern_size) * np.sum(new_pattern * pattern)
+            order_parameters[i+1] = np.mean(new_pattern * pattern)
 
-        order_parameter = (1/iterations) * np.sum(order_parameters)
+        order_parameter = np.mean(order_parameters)
         return new_pattern, order_parameter

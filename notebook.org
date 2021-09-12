@@ -1,10 +1,14 @@
-#+TITLE: Notebook
-#+property: header-args :session hopfield
+#+TITLE: Hopfield Networks
+#+setupfile: ~/Dropbox/org/orbit/articles/setup_file.org
 
-
+* Recognizing digits
+:properties:
+:header-args: :session hopfield1 :exports both
+:end:
 Task is to store patterns of digits into a hopfield network, then try out which pattern different distorted patterns converge to.
 
-Load some libraries.
+Import libraries
+
 #+begin_src jupyter-python
 import sys
 sys.path.append('src')
@@ -22,100 +26,14 @@ mpl.rc('image', cmap='gray')
 
 #+RESULTS:
 
-* Stochastic Hopfield network
-#+begin_src jupyter-python
-def generate_patterns(num_patterns, num_bits, prob, rng):
-    """Generate binary patterns with probability."""
-    return rng.choice([-1,1], (num_patterns, num_bits), replace=True, p=[prob, 1-prob])
-
-seed = 1;
-rng = np.random.default_rng(seed=seed)
-noise_parameter = 2
-N = 200
-p = 7
-num_updates = 2*10**1
-num_experiments = 2
-
-order_parameters = np.zeros(num_experiments, dtype=float)
-
-model = StochasticHopfieldNetwork(N, noise_parameter, seed=seed, asynchronous=True, zero_diagonal=True)
-print('Running trial: ', end='')
-for i in range(num_experiments):
-    if i % 10 == 0:
-        print(f'{i}, ', end='')
-
-    patterns = generate_patterns(p, N, 1/2, rng)
-    model.store(patterns)
-
-    _, order_parameters[i] = model.predict(patterns[0], num_updates, update_scheme='random', stop_on_convergence=False)
-
-print('done.')
-
-#+end_src
-
-#+RESULTS:
-:RESULTS:
-: Running trial: 0, 0.016956535510200765
-# [goto error]
-#+begin_example
-
-IndexErrorTraceback (most recent call last)
-<ipython-input-2-9556c6e7126f> in <module>
-     22     model.store(patterns)
-     23
----> 24     _, order_parameters[i] = model.predict(patterns[0], num_updates, update_scheme='random', stop_on_convergence=False)
-     25
-     26 print('done.')
-
-~/Dropbox/org/orbit/articles/project/hopfield_network/src/model.py in predict(self, pattern, iterations, update_scheme, stop_on_convergence)
-     95
-     96             # Order parameter
----> 97             order_parameters[bi+1] = (1/self.pattern_size) * np.sum(new_pattern * pattern)
-     98
-     99         order_parameter = (1/iterations) * np.sum(order_parameters)
-
-IndexError: index 95 is out of bounds for axis 0 with size 21
-#+end_example
-:END:
-
-
-#+begin_src jupyter-python
-print(order_parameters)
-print(f'Average order parameter: {np.mean(order_parameters)}')
-#+end_src
-
-#+RESULTS:
-#+begin_example
-[-2.605e-05 -3.440e-05  3.350e-06 -1.310e-05  2.550e-05  3.185e-05
- -9.950e-06 -1.955e-05  2.160e-05 -2.740e-05 -1.390e-05 -2.980e-05
- -2.640e-05  1.195e-05 -1.310e-05 -3.800e-06  8.550e-06  9.900e-06
- -1.935e-05 -1.940e-05  1.060e-05  4.450e-05  1.830e-05 -2.300e-06
- -2.220e-05  4.660e-05  2.400e-05 -1.955e-05  1.690e-05 -9.050e-06
- -1.150e-05 -4.000e-06  2.000e-06  5.450e-06 -8.500e-07  1.910e-05
-  1.655e-05 -1.100e-05  7.200e-06  7.050e-06  2.765e-05  3.600e-06
- -3.560e-05  1.200e-06  3.800e-06  1.700e-06  7.000e-07  1.400e-05
- -1.635e-05  1.165e-05 -1.110e-05 -1.635e-05  1.165e-05  4.600e-06
- -7.650e-06 -2.060e-05 -1.195e-05  2.000e-07 -3.800e-06  1.060e-05
- -6.150e-06 -2.060e-05  8.400e-06 -2.275e-05  3.570e-05  2.040e-05
- -3.595e-05 -1.205e-05 -2.760e-05  6.000e-07 -3.100e-05  2.775e-05
- -1.915e-05 -4.845e-05  2.200e-06 -2.235e-05 -5.960e-05 -1.880e-05
- -4.325e-05  1.450e-05  5.300e-06  2.170e-05  1.350e-05 -4.050e-06
-  2.025e-05  1.500e-06  1.575e-05 -1.530e-05 -2.005e-05 -2.000e-05
-  2.615e-05 -1.500e-07 -9.300e-06  1.245e-05  7.500e-06  3.720e-05
- -1.995e-05  1.580e-05  3.365e-05  1.845e-05]
-Average order parameter: -1.555e-06
-#+end_example
-
-* Recognizing digits
-
-#+RESULTS:
-
 Plot the dataset we are working with
 
 #+begin_src jupyter-python :file ./img/digits.png
 fig, axes = plt.subplots(1, len(digit_dataset))
 for i, ax in enumerate(axes):
     ax.imshow(digit_dataset[i], origin='upper')
+    ax.xaxis.set_visible(False)
+    ax.set_yticks([])
 
 plt.show()
 #+end_src
@@ -123,7 +41,7 @@ plt.show()
 #+RESULTS:
 [[file:./img/digits.png]]
 
-Train model
+Memorize the patterns by storing them
 
 #+begin_src jupyter-python
 N = np.size(digit_dataset[0])
@@ -133,7 +51,8 @@ model.store(np.reshape(digit_dataset, (-1, N)))
 
 #+RESULTS:
 
-** Feed different patterns
+
+Hard-code some example inputs, which we will morph into patterns via asynchronous update.
 
 #+begin_src jupyter-python :file ./img/morphed_patterns.png :results output
 x1 = np.array([[1, 1, -1, -1, -1, -1, -1, -1, 1, 1], [-1, -1, 1, 1, 1, 1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, 1, 1, 1, 1, 1, 1, -1, -1], [-1, -1, 1, 1, 1, 1, 1, 1, -1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, 1, 1, 1, 1, 1, 1, 1, -1], [1, 1, -1, -1, -1, -1, -1, -1, 1, 1]])
@@ -144,24 +63,28 @@ x3 = np.array([[-1, -1, -1, -1, -1, -1, -1, -1, 1, 1], [-1, -1, -1, -1, -1, -1, 
 
 patterns = [x1, x2, x3]
 
-fig, axes = plt.subplots(3,2)
+fig, axes = plt.subplots(2,3, figsize=(5,5))
 morphed_patterns = np.zeros_like(patterns, dtype=int)
 for i, pattern in enumerate(patterns):
-    morphed_patterns[i] = model.predict(pattern.reshape(-1), 0, update_scheme='typewriter', stop_on_convergence=True).reshape(pattern.shape)
+    morphed_patterns[i] = model.predict(pattern.reshape(-1), 0, update_scheme='typewriter',
+                                        stop_on_convergence=False).reshape(pattern.shape)
 
-    ax1, ax2 = axes[i]
+    ax1, ax2 = axes[:,i]
     ax1.imshow(pattern, origin='upper')
     ax2.imshow(morphed_patterns[i], origin='upper')
+    ax1.xaxis.set_visible(False)
+    ax2.xaxis.set_visible(False)
+    ax1.set_yticks([])
+    ax2.set_yticks([])
 
+axes[0,0].set_ylabel('Original')
+axes[1,0].set_ylabel('Converged')
 plt.show()
 
 #+end_src
 
 #+RESULTS:
-:RESULTS:
-: hello
 [[file:./img/morphed_patterns.png]]
-:END:
 
 Print text for handin.
 #+begin_src jupyter-python
@@ -222,11 +145,33 @@ array([[ 1,  1, -1, -1, -1, -1, -1, -1,  1,  1],
 #+end_example
 
 * One-step error probability
+:properties:
+:header-args: :session hopfield2 :exports both
+:end:
+
+#+begin_src jupyter-python
+import sys
+sys.path.append('src')
+
+,#+begin_src jupyter-python
+from dataset import digit_dataset
+from model import HopfieldNetwork, StochasticHopfieldNetwork
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+import matplotlib as mpl
+mpl.rc('image', cmap='gray')
+mpl.rc('text', usetex=True)
+#+end_src
+
+#+RESULTS:
+
 Generate random patterns
 #+begin_src jupyter-python
 N = 120
 prob = 1/2
-p = [12, 25, 58, 70, 100, 120]
+p = [12, 24, 48, 70, 100, 120]
 rng = np.random.default_rng()
 num_trials = 10**5
 
@@ -240,6 +185,7 @@ def generate_patterns(num_patterns, num_bits, prob, rng):
 
 #+begin_src jupyter-python
 def perform_trials(patterns, num_trials, rng, zero_diagonal=True):
+    N = patterns.shape[1]
     model = HopfieldNetwork(N, asynchronous=True, zero_diagonal=zero_diagonal)
     model.store(np.reshape(patterns, (-1, N)))
 
@@ -256,40 +202,122 @@ def perform_trials(patterns, num_trials, rng, zero_diagonal=True):
 
 p_error_zeroed = np.zeros_like(p, dtype=float)
 for i, num_patterns in enumerate(p):
-    print(f'Running for p={num_patterns}...')
+    print(f'ZERO: Running for p={num_patterns}...', end='\r')
     patterns = generate_patterns(num_patterns, N, prob, rng)
-    # p_error_zeroed[i] = perform_trials(patterns, num_trials, rng, zero_diagonal=True)
     p_error_zeroed[i] = perform_trials(patterns, num_trials, rng, zero_diagonal=True)
 
 p_error_nonzeroed = np.zeros_like(p, dtype=float)
 for i, num_patterns in enumerate(p):
-    print(f'Running for p={num_patterns}...')
+    print(f'NONZERO: Running for p={num_patterns}...', end='\r')
     patterns = generate_patterns(num_patterns, N, prob, rng)
     p_error_nonzeroed[i] = perform_trials(patterns, num_trials, rng, zero_diagonal=False)
 
 #+end_src
 
 #+RESULTS:
-#+begin_example
-Running for p=12...
-Running for p=25...
-Running for p=58...
-Running for p=70...
-Running for p=100...
-Running for p=120...
-Running for p=12...
-Running for p=25...
-Running for p=58...
-Running for p=70...
-Running for p=100...
-Running for p=120...
-#+end_example
+: Running for p=120...
 
  #+begin_src jupyter-python :results table
-print('Zeroed diagonal: ', p_error_zeroed)
-print('Nonzeroed diagonal: ', p_error_nonzeroed)
+print('Zeroed diagonal: ', repr(np.around(p_error_zeroed, 4)))
+print('Nonzeroed diagonal: ', repr(np.around(p_error_nonzeroed, 4)))
  #+end_src
 
  #+RESULTS:
- : Zeroed diagonal:  [0.00125 0.01334 0.07872 0.09861 0.13276 0.15896]
- : Nonzeroed diagonal:  [0.      0.00353 0.02048 0.01603 0.02136 0.02001]
+ : Zeroed diagonal:  array([0.    , 0.0068, 0.0552, 0.0978, 0.1325, 0.1646])
+ : Nonzeroed diagonal:  array([0.0006, 0.0015, 0.0121, 0.0161, 0.0212, 0.0221])
+
+#+begin_src jupyter-python
+storage_capacities = np.array(p) / N
+fig, ax = plt.subplots(1,1)
+ax.plot(storage_capacities, p_error_zeroed, '.-', label='zeroed diagonal')
+ax.plot(storage_capacities, p_error_nonzeroed, '.-', label='nonzeroed diagonal')
+ax.set_xlabel(r'$\alpha = \frac{p}{N}$')
+ax.set_ylabel(r'$p_{error}^{t=1}$')
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:./.ob-jupyter/01328c4720a73017188f24571f627fd1d83fa442.png]]
+
+* Stochastic Hopfield network
+:properties:
+:header-args: :session hopfield2 :exports both
+:end:
+Notebook for estimating order parameters of a stochastic Hopfield network.
+
+Load some libraries.
+#+begin_src jupyter-python
+import sys
+sys.path.append('src')
+
+#+begin_src jupyter-python
+from model import StochasticHopfieldNetwork
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+import matplotlib as mpl
+mpl.rc('image', cmap='gray')
+#+end_src
+
+#+RESULTS:
+
+Define helper functions to run two simulations
+#+begin_src jupyter-python
+def generate_patterns(num_patterns, num_bits, prob, rng):
+    """Generate binary patterns with probability."""
+    return rng.choice([-1,1], (num_patterns, num_bits), replace=True, p=[prob, 1-prob])
+
+def run_simulation(num_patterns, num_bits, num_updates, num_experiments, rng):
+    order_parameters = np.zeros(num_experiments, dtype=float)
+
+    model = StochasticHopfieldNetwork(N, noise_parameter, seed=seed, asynchronous=True,
+                                      zero_diagonal=False)
+    for i in range(num_experiments):
+        print(f'Running trial: {i}', end='\r')
+
+        patterns = generate_patterns(p, N, 1/2, rng)
+        model.store(patterns)
+
+        _, order_parameters[i] = model.predict(patterns[0], num_updates,
+                                               update_scheme='typewriter',
+                                               stop_on_convergence=False)
+
+    print('done.')
+    return order_parameters
+#+end_src
+
+#+RESULTS:
+Run for $p=7$
+
+#+begin_src jupyter-python
+seed = 1;
+rng = np.random.default_rng(seed=seed)
+noise_parameter = 2
+N = 200
+p = 7
+num_updates = (2*10**5)
+num_experiments = 100
+
+order_parameters1 = run_simulation(p, N, num_updates, num_experiments, rng)
+print(f'Average order parameter: {np.mean(order_parameters1)}')
+#+end_src
+
+#+RESULTS:
+#+begin_example
+done.
+Average order parameter: 0.9028316683416583
+#+end_example
+
+Run for $p=45$
+#+begin_src jupyter-python
+p = 45
+order_parameters2 = run_simulation(p, N, num_updates, num_experiments, rng)
+print(f'Average order parameter: {np.mean(order_parameters2)}')
+#+end_src
+
+#+RESULTS:
+#+begin_example
+done.
+Average order parameter: 0.15361914690426548
+#+end_example
