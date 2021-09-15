@@ -1,0 +1,101 @@
+:properties:
+:header-args: :session hopfield2 :exports both
+:EXPORT_FILE_NAME: out/one-step-error-probability
+:end:
+
+#+setupfile: ~/Dropbox/org/orbit/articles/setup_file.org
+
+#+TITLE: One step error probability
+
+Model defined in =model.py=
+#+include: "src/model.py" src python :lines "2-60"
+
+#+begin_src jupyter-python
+import sys
+sys.path.append('src')
+
+,#+begin_src jupyter-python
+from dataset import digit_dataset
+from model import HopfieldNetwork, StochasticHopfieldNetwork
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+import matplotlib as mpl
+mpl.rc('image', cmap='gray')
+mpl.rc('text', usetex=True)
+#+end_src
+
+#+RESULTS:
+
+Generate random patterns
+#+begin_src jupyter-python
+N = 120
+prob = 1/2
+p = [12, 24, 48, 70, 100, 120]
+rng = np.random.default_rng()
+num_trials = 10**5
+
+def generate_patterns(num_patterns, num_bits, prob, rng):
+    """Generate binary patterns with probability."""
+    return rng.choice([-1,1], (num_patterns, num_bits), replace=True, p=[prob, 1-prob])
+
+#+end_src
+
+#+RESULTS:
+
+#+begin_src jupyter-python
+def perform_trials(patterns, num_trials, rng, zero_diagonal=True):
+    N = patterns.shape[1]
+    model = HopfieldNetwork(N, asynchronous=True, zero_diagonal=zero_diagonal)
+    model.store(np.reshape(patterns, (-1, N)))
+
+    chosen_patterns = rng.choice(patterns, (num_trials,), replace=True)
+    p_error = 0.0
+    for pattern in chosen_patterns:
+        morphed_pattern = model.predict(pattern, 1, update_scheme='random')
+        if not np.all(morphed_pattern == pattern):
+            p_error += 1.0
+
+    p_error /= num_trials
+
+    return p_error
+
+p_error_zeroed = np.zeros_like(p, dtype=float)
+for i, num_patterns in enumerate(p):
+    print(f'ZERO: Running for p={num_patterns}...', end='\r')
+    patterns = generate_patterns(num_patterns, N, prob, rng)
+    p_error_zeroed[i] = perform_trials(patterns, num_trials, rng, zero_diagonal=True)
+
+p_error_nonzeroed = np.zeros_like(p, dtype=float)
+for i, num_patterns in enumerate(p):
+    print(f'NONZERO: Running for p={num_patterns}...', end='\r')
+    patterns = generate_patterns(num_patterns, N, prob, rng)
+    p_error_nonzeroed[i] = perform_trials(patterns, num_trials, rng, zero_diagonal=False)
+
+#+end_src
+
+#+RESULTS:
+: NONZERO: Running for p=120...
+
+ #+begin_src jupyter-python :results table
+print('Zeroed diagonal: ', repr(np.around(p_error_zeroed, 4)))
+print('Nonzeroed diagonal: ', repr(np.around(p_error_nonzeroed, 4)))
+ #+end_src
+
+ #+RESULTS:
+ : Zeroed diagonal:  array([0.0008, 0.0154, 0.0631, 0.0926, 0.1403, 0.1598])
+ : Nonzeroed diagonal:  array([0.    , 0.0007, 0.0122, 0.0185, 0.0222, 0.0209])
+
+#+begin_src jupyter-python
+storage_capacities = np.array(p) / N
+fig, ax = plt.subplots(1,1)
+ax.plot(storage_capacities, p_error_zeroed, '.-', label='zeroed diagonal')
+ax.plot(storage_capacities, p_error_nonzeroed, '.-', label='nonzeroed diagonal')
+ax.set_xlabel(r'$\alpha = \frac{p}{N}$')
+ax.set_ylabel(r'$p_{error}^{t=1}$')
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:./.ob-jupyter/7877d3ce22d6bc3666306bc58efa67cffddcf3fb.png]]

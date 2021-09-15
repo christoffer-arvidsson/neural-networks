@@ -1,0 +1,152 @@
+:properties:
+:header-args: :session hopfield1 :exports both
+:EXPORT_FILE_NAME: /out/recognizing_digits
+:end:
+
+#+setupfile: ~/Dropbox/org/orbit/articles/setup_file.org
+
+#+TITLE: Recognising digits
+
+Dataset defined in =dataset.py=
+#+include: "src/dataset.py" src python
+Model defined in =model.py=
+#+include: "src/model.py" src python :lines "2-60"
+
+Task is to store patterns of digits into a hopfield network, then try out which pattern different distorted patterns converge to.
+
+Import libraries
+
+#+begin_src jupyter-python
+import sys
+sys.path.append('src')
+
+#+begin_src jupyter-python
+from dataset import digit_dataset
+from model import HopfieldNetwork, StochasticHopfieldNetwork
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+import matplotlib as mpl
+mpl.rc('image', cmap='gray')
+#+end_src
+
+#+RESULTS:
+
+Plot the dataset we are working with
+
+#+begin_src jupyter-python :file ./img/digits.png
+fig, axes = plt.subplots(1, len(digit_dataset))
+for i, ax in enumerate(axes):
+    ax.imshow(digit_dataset[i], origin='upper')
+    ax.xaxis.set_visible(False)
+    ax.set_yticks([])
+
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:./img/digits.png]]
+
+Memorize the patterns by storing them
+
+#+begin_src jupyter-python
+N = np.size(digit_dataset[0])
+model = HopfieldNetwork(N, asynchronous=True, zero_diagonal=True, seed=None)
+model.store(np.reshape(digit_dataset, (-1, N)))
+#+end_src
+
+#+RESULTS:
+
+
+Hard-code some example inputs, which we will morph into patterns via asynchronous update.
+
+#+begin_src jupyter-python :file ./img/morphed_patterns.png :results output
+x1 = np.array([[1, 1, -1, -1, -1, -1, -1, -1, 1, 1], [-1, -1, 1, 1, 1, 1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, 1, 1, 1, 1, 1, 1, -1, -1], [-1, -1, 1, 1, 1, 1, 1, 1, -1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, 1, 1, 1, 1, 1, 1, 1, -1], [1, 1, -1, -1, -1, -1, -1, -1, 1, 1]])
+
+x2 = np.array([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, -1, -1, -1, -1, 1, 1, 1], [1, 1, -1, -1, -1, -1, -1, -1, 1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, 1, -1, -1, -1, -1, -1, -1, 1, 1], [1, 1, 1, -1, -1, -1, -1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
+
+x3 = np.array([[-1, -1, -1, -1, -1, -1, -1, -1, 1, 1], [-1, -1, -1, -1, -1, -1, -1, -1, 1, 1], [1, 1, 1, 1, 1, -1, -1, -1, 1, 1], [1, 1, 1, 1, 1, -1, -1, -1, 1, 1], [1, 1, 1, 1, 1, -1, -1, -1, 1, 1], [1, 1, 1, 1, 1, -1, -1, -1, 1, 1], [1, 1, 1, 1, 1, -1, -1, -1, 1, 1], [-1, -1, -1, -1, -1, -1, -1, -1, 1, 1], [-1, -1, -1, -1, -1, 1, 1, 1, -1, -1], [1, 1, 1, -1, -1, -1, -1, -1, -1, -1], [1, 1, 1, -1, -1, -1, -1, -1, -1, -1], [1, 1, 1, -1, -1, -1, -1, -1, -1, -1], [1, 1, 1, -1, -1, -1, -1, -1, -1, -1], [1, 1, 1, -1, -1, -1, -1, -1, -1, -1], [1, 1, 1, 1, 1, 1, 1, 1, -1, -1], [1, 1, 1, 1, 1, 1, 1, 1, -1, -1]])
+
+patterns = [x1, x2, x3]
+
+fig, axes = plt.subplots(2,3, figsize=(5,5))
+morphed_patterns = np.zeros_like(patterns, dtype=int)
+for i, pattern in enumerate(patterns):
+    morphed_patterns[i] = model.predict(pattern.reshape(-1), 0, update_scheme='typewriter',
+                                        stop_on_convergence=False).reshape(pattern.shape)
+
+    ax1, ax2 = axes[:,i]
+    ax1.imshow(pattern, origin='upper')
+    ax2.imshow(morphed_patterns[i], origin='upper')
+    ax1.xaxis.set_visible(False)
+    ax2.xaxis.set_visible(False)
+    ax1.set_yticks([])
+    ax2.set_yticks([])
+
+axes[0,0].set_ylabel('Original')
+axes[1,0].set_ylabel('Converged')
+plt.show()
+
+#+end_src
+
+#+RESULTS:
+[[file:./img/morphed_patterns.png]]
+
+Print text for handin.
+#+begin_src jupyter-python
+for pat in morphed_patterns:
+    print(repr(pat))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+array([[-1, -1,  1,  1,  1,  1,  1,  1, -1, -1],
+       [-1, -1,  1,  1,  1,  1,  1,  1,  1, -1],
+       [-1, -1, -1, -1, -1, -1,  1,  1,  1, -1],
+       [-1, -1, -1, -1, -1, -1,  1,  1,  1, -1],
+       [-1, -1, -1, -1, -1, -1,  1,  1,  1, -1],
+       [-1, -1, -1, -1, -1, -1,  1,  1,  1, -1],
+       [-1, -1, -1, -1, -1, -1,  1,  1,  1, -1],
+       [-1, -1,  1,  1,  1,  1,  1,  1, -1, -1],
+       [-1, -1,  1,  1,  1,  1,  1,  1, -1, -1],
+       [-1, -1, -1, -1, -1, -1,  1,  1,  1, -1],
+       [-1, -1, -1, -1, -1, -1,  1,  1,  1, -1],
+       [-1, -1, -1, -1, -1, -1,  1,  1,  1, -1],
+       [-1, -1, -1, -1, -1, -1,  1,  1,  1, -1],
+       [-1, -1, -1, -1, -1, -1,  1,  1,  1, -1],
+       [-1, -1,  1,  1,  1,  1,  1,  1,  1, -1],
+       [-1, -1,  1,  1,  1,  1,  1,  1, -1, -1]])
+array([[ 1,  1,  1,  1,  1,  1,  1,  1,  1,  1],
+       [ 1,  1,  1, -1, -1, -1, -1,  1,  1,  1],
+       [ 1,  1, -1, -1, -1, -1, -1, -1,  1,  1],
+       [ 1, -1, -1, -1,  1,  1, -1, -1, -1,  1],
+       [ 1, -1, -1, -1,  1,  1, -1, -1, -1,  1],
+       [ 1, -1, -1, -1,  1,  1, -1, -1, -1,  1],
+       [ 1, -1, -1, -1,  1,  1, -1, -1, -1,  1],
+       [ 1, -1, -1, -1,  1,  1, -1, -1, -1,  1],
+       [ 1, -1, -1, -1,  1,  1, -1, -1, -1,  1],
+       [ 1, -1, -1, -1,  1,  1, -1, -1, -1,  1],
+       [ 1, -1, -1, -1,  1,  1, -1, -1, -1,  1],
+       [ 1, -1, -1, -1,  1,  1, -1, -1, -1,  1],
+       [ 1, -1, -1, -1,  1,  1, -1, -1, -1,  1],
+       [ 1,  1, -1, -1, -1, -1, -1, -1,  1,  1],
+       [ 1,  1,  1, -1, -1, -1, -1,  1,  1,  1],
+       [ 1,  1,  1,  1,  1,  1,  1,  1,  1,  1]])
+array([[ 1,  1, -1, -1, -1, -1, -1, -1,  1,  1],
+       [ 1,  1, -1, -1, -1, -1, -1, -1, -1,  1],
+       [ 1,  1,  1,  1,  1,  1, -1, -1, -1,  1],
+       [ 1,  1,  1,  1,  1,  1, -1, -1, -1,  1],
+       [ 1,  1,  1,  1,  1,  1, -1, -1, -1,  1],
+       [ 1,  1,  1,  1,  1,  1, -1, -1, -1,  1],
+       [ 1,  1,  1,  1,  1,  1, -1, -1, -1,  1],
+       [ 1,  1, -1, -1, -1, -1, -1, -1,  1,  1],
+       [ 1,  1, -1, -1, -1, -1, -1, -1,  1,  1],
+       [ 1,  1,  1,  1,  1,  1, -1, -1, -1,  1],
+       [ 1,  1,  1,  1,  1,  1, -1, -1, -1,  1],
+       [ 1,  1,  1,  1,  1,  1, -1, -1, -1,  1],
+       [ 1,  1,  1,  1,  1,  1, -1, -1, -1,  1],
+       [ 1,  1,  1,  1,  1,  1, -1, -1, -1,  1],
+       [ 1,  1, -1, -1, -1, -1, -1, -1, -1,  1],
+       [ 1,  1, -1, -1, -1, -1, -1, -1,  1,  1]])
+#+end_example
