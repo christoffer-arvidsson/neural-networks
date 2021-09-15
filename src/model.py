@@ -2,7 +2,8 @@
 import numpy as np
 
 class HopfieldNetwork:
-    def __init__(self, pattern_size, seed=12345, asynchronous=True, zero_diagonal=False):
+    def __init__(self, pattern_size, seed=12345, asynchronous=True,
+                 zero_diagonal=False):
         self.pattern_size = pattern_size # N in book
         self.weights = np.zeros((pattern_size, pattern_size), dtype=float)
         self.rng = np.random.default_rng(seed=seed)
@@ -18,7 +19,8 @@ class HopfieldNetwork:
         # Iterate through all pairs
         for i in range(N):
             for j in range(N):
-                self.weights[i, j] = (1/N) * np.sum(pattern[:,i] * pattern[:,j], axis=0)
+                self.weights[i, j] = (1/N) * np.sum(pattern[:,i] * pattern[:,j],
+                                                    axis=0)
 
         if self.zero_diagonal:
             np.fill_diagonal(self.weights, 0)
@@ -28,11 +30,13 @@ class HopfieldNetwork:
     def update_rule(self, local_field):
         return np.sign(local_field)
 
-    def predict(self, pattern, iterations, update_scheme='random', stop_on_convergence=False):
+    def predict(self, pattern, iterations, update_scheme='random',
+                stop_on_convergence=False):
         """Morph a pattern into the closest minimum of the energy function."""
         # Select random bits to morph
         if update_scheme == 'random':
-            bit_indices = self.rng.choice(np.arange(self.pattern_size), size=(iterations,), replace=True)
+            bit_indices = self.rng.choice(np.arange(self.pattern_size),
+                                          size=(iterations,), replace=True)
         elif update_scheme == 'typewriter':
             bit_indices = np.arange(pattern.size * 2) % self.pattern_size
 
@@ -70,11 +74,13 @@ class StochasticHopfieldNetwork(HopfieldNetwork):
         r = self.rng.random()
         return 1 if r < p else -1
 
-    def predict(self, pattern, iterations, update_scheme='random', stop_on_convergence=False):
+    def predict(self, pattern, iterations, update_scheme='random',
+                stop_on_convergence=False):
         """Morph a pattern into the closest minimum of the energy function."""
         # Select random bits to morph
         if update_scheme == 'random':
-            bit_indices = self.rng.choice(np.arange(self.pattern_size), size=(iterations,), replace=True)
+            bit_indices = self.rng.choice(np.arange(self.pattern_size),
+                                          size=(iterations,), replace=True)
         elif update_scheme == 'typewriter':
             bit_indices = np.arange(iterations) % self.pattern_size
 
