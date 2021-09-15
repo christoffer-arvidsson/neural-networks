@@ -2,6 +2,11 @@
 :ID:       f51ca7bd-7625-484c-9a65-9a43a4ade4c7
 :END:
 #+filetags: :project:
-#+title: Hopfield network
+#+title: Implementation of a Hopfield network
 
 An implementation of hopfield networks, taught in an /artificial neural networks/ course at Chalmers.
+
+There are also a few notebooks that were the homework problems.
+- Recognising digits :: Store images of digits in network, feed distorted and check what it converges to
+- One-step error probability :: Estimate the probability of performing a wrong update, assuming fed pattern is already correct
+- Stochastic hopfield network :: Hopfield network with added noise, computes the order parameter
