@@ -1,0 +1,79 @@
+#+title: Boolean function separability
+#+setupfile: ~/Dropbox/org/orbit/articles/setup_file.org
+
+For a 3-dimensional hypercube, we can reduce the configurations we have to check by noting that
+1. Rotating the cube does not change separability (256 -> 64)
+2. Mirroring the cube does not change separability (64 -> 32)
+3. Inverting the bits does not change separability (32 -> 16)
+
+This reduces the number of configurations to 16. Checking each invividually, only the ones that have two bits set have a chance of being linearly inseparable. These configurations have planes like $\begin{matrix} 1 &0 \\ 0 &1\end{matrix}$, which notably is the XOR 2D case. There are two cases where this plane shows up: On a face of the cube, or through the center of the cube
+
+An example for each case is shown below
+
+#+begin_src text
+  0----0       1----0
+ /    /|      /    /|
+1----0 |     0----0 |
+| 0  | 0     | 0  | 0
+|    |/      |    |/
+0----1       0----1
+#+end_src
+
+To program this, first generate all possible configurations
+#+begin_src jupyter-python
+from itertools import product
+import numpy as np
+
+# Generate all configurations
+states = np.array(list(product([0,1], repeat=8)))
+print(states)
+#+end_src
+
+#+RESULTS:
+: [[0 0 0 ... 0 0 0]
+:  [0 0 0 ... 0 0 1]
+:  [0 0 0 ... 0 1 0]
+:  ...
+:  [1 1 1 ... 1 0 1]
+:  [1 1 1 ... 1 1 0]
+:  [1 1 1 ... 1 1 1]]
+
+Next, to avoid dealing with rotation and mirroring operations, it is easy enough to
+check all 12 configurations of the planes described earlier (6 for same face, 6 for different face).
+
+#+begin_src jupyter-python
+def check_linear_inseparability(a,b,c,d,e,f,g,h):
+    expression = \
+        (a==d and b==c and a!=b) or \
+        (b==h and d==f and b!=d) or \
+        (e==h and f==g and e!=f) or \
+        (a==g and c==e and a!=c) or \
+        (c==h and d==g and c!=d) or \
+        (a==f and b==e and a!=b) or \
+        (a==h and b==g and b!=a) or \
+        (a==h and c==f and c!=a) or \
+        (a==h and d==e and d!=a) or \
+        (b==g and d==e and d!=b) or \
+        (b==g and f==c and b!=f) or \
+        (f==c and d==e and f!=d)
+
+    return expression
+#+end_src
+
+#+RESULTS:
+
+Now, loop over all configurations, counting those that are linearly inseparable. Finally, subtract this from the total number of functions to compute the number of linearly separable functions.
+#+begin_src jupyter-python :exports both
+linearly_inseparable = 0
+for state in states:
+    linearly_inseparable += check_linear_inseparability(*state)
+
+print(f'Number of functions: {2**2**3}')
+print(f'Linearly inseparable functions: {linearly_inseparable}')
+print(f'Linearly separable functions: {2**2**3 - linearly_inseparable}')
+#+end_src
+
+#+RESULTS:
+: Number of functions: 256
+: Linearly inseparable functions: 152
+: Linearly separable functions: 104

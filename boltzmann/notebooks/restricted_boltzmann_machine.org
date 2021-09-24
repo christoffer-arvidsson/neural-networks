@@ -1,0 +1,84 @@
+#+TITLE: Restricted boltzmann machine
+
+* Dataset
+#+begin_src jupyter-python
+import sys
+sys.path.append('../src')
+
+import numpy as np
+from model import BoltzmannMachine
+
+
+dataset = np.array([
+    [-1,-1,-1],
+    [1,-1,1],
+    [-1,1,1],
+    [1,1,-1],
+])
+#+end_src
+
+#+RESULTS:
+
+* Boltzmann machine
+#+begin_src jupyter-python
+a = [1,2,3]
+b = np.ones((3,4))
+
+res = 0
+for i in range(4):
+    for j in range(3):
+        res += b[j,i] * a[j]
+
+np.dot(a,b)
+#+end_src
+
+#+RESULTS:
+: array([6., 6., 6., 6.])
+
+Train
+#+begin_src jupyter-python
+k = 100              # monte carlo iterations
+realizations = 1000   # weight updates
+n_visible = 3        # N
+n_hidden = [1,2,4,8] # M
+learning_rate = 0.1
+machine= BoltzmannMachine(n_visible, 4)
+
+# Patterns indices to feed
+mus = machine.rng.choice(dataset.shape[0], size=(realizations,))
+
+counts = np.zeros(dataset.shape[0])
+for i in range(realizations):
+    mu = mus[i]
+    machine.run_cd_k(dataset[mu], k=k, learning_rate=learning_rate)
+#+end_src
+
+#+RESULTS:
+
+Iterate
+#+begin_src jupyter-python
+transient_iterations = 10**3
+simulation_iterations = 10
+
+for i in range(transient_iterations):
+    machine.iteration_step()
+
+steady_state_distr = np.zeros(dataset.shape[0], dtype=float)
+for i in range(simulation_iterations):
+    machine.iteration_step()
+    pattern = machine.v_state
+    print(pattern)
+
+#+end_src
+
+#+RESULTS:
+: [-1 -1 -1]
+: [-1 -1 -1]
+: [-1 -1 -1]
+: [-1 -1 -1]
+: [-1 -1 -1]
+: [-1 -1 -1]
+: [-1 -1 -1]
+: [-1 -1 -1]
+: [-1 -1 -1]
+: [-1 -1 -1]
