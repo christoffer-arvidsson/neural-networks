@@ -43,64 +43,42 @@ y_val = validation_set.values[:,-1]
 * Model
 #+begin_src jupyter-python :kernel ml
 seed = None
-epochs = 500
-learning_rate = 0.1
-layer_sizes = [2, 16, 1]
+epochs = 1000
+learning_rate = 0.01
+patience = 50
+layer_sizes = [2, 8, 4, 1]
 rng = np.random.default_rng(seed)
+
 net = Perceptron(layer_sizes, rng)
-net.train(x_train_normalized, y_train, x_val_normalized, y_val, epochs, learning_rate=learning_rate)
+
+net.train(x_train_normalized,
+          y_train,
+          x_val_normalized,
+          y_val,
+          epochs,
+          learning_rate=learning_rate,
+          patience=patience)
+
 #+end_src
 
 #+RESULTS:
-: Epoch: 499	 error_validation: 0.19140000000000001
+: Epoch: 128/1000,	step: 1280000,	energy_train: 1984.8405,	error_val: 0.1170
 
 
-#+begin_src jupyter-python :kernel ml
-y_pred = np.zeros_like(y_val)
-for i, x in enumerate(x_val):
+#+begin_src jupyter-python :kernel ml :file ../img/perceptron_classification.png
+y_pred = np.zeros_like(y_train)
+for i, x in enumerate(x_train_normalized):
     y_pred[i] = np.sign(net.predict(x))
 
 prediction = pd.DataFrame({
-    'x_1': x_val_normalized[:,0],
-    'x_2': x_val_normalized[:,1],
-    'y_true': y_val,
+    'x_1': x_train_normalized[:,0],
+    'x_2': x_train_normalized[:,1],
+    'y_true': y_train,
     'y_pred': y_pred,
-    'correct': y_val == y_pred
+    'correct': y_train == y_pred
 })
-g = sns.scatterplot(data=prediction, x='x_1', y='x_2', hue='correct', legend=True, s=8.0)
+g = sns.scatterplot(data=prediction, x='x_1', y='x_2', hue='y_pred', legend=True, s=8.0)
 #+end_src
 
 #+RESULTS:
-[[file:./.ob-jupyter/24284dde012fb5c8ec5e238f5bd6eac42d2d395e.png]]
-
-# [goto error]
-: ---------------------------------------------------------------------------
-: NameError                                 Traceback (most recent call last)
-: <ipython-input-5-37f28567ab74> in <module>
-:       1 y_pred = np.zeros_like(y_val)
-:       2 for i, x in enumerate(x_val):
-: ----> 3     y_pred[i] = np.sign(net.predict(x))
-:       4
-:       5 prediction = pd.DataFrame({
-:
-: NameError: name 'net' is not defined
-:END:
-#+RESULTS:
-#+begin_example
-[[ 1.49246178]
- [-0.91321009]
- [-0.31469216]
- [ 0.37439848]
- [-0.26222985]
- [ 0.27134959]
- [-0.24350813]
- [-0.93641108]
- [ 0.57138294]
- [ 1.30867676]
- [-1.16873578]
- [ 0.22078172]
- [-0.04766062]
- [ 0.39203356]
- [ 1.40651199]
- [-1.72999848]]
-#+end_example
+[[file:../img/perceptron_classification.png]]
