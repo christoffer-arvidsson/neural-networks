@@ -1,0 +1,9 @@
+#+TITLE: Readme
+
+These are some implemetations of neural network models part of the /Artificial
+Neural Network/ course at Chalmers.
+
+Models:
+- Hopfield network :: A recurrent network that can learn simple patterns.
+- Restricted Boltzmann machine :: Precursor to perceptron, it fits the data distribution via Monte Carlo simulation.
+- Perceptron :: Simple feed-forward network that uses Stochastic gradient descent.
