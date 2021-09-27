@@ -37,7 +37,8 @@ class Perceptron:
         # Backward
         delta = output_delta
         for l in range(1, L)[::-1]:
-            delta = np.sum(self.layers[l].weights @ delta[:,None], axis=1) * self.dtanh(self.layers[l-1].state)
+            delta = np.sum(self.layers[l].weights @ delta[:,None], axis=1) \
+                * self.dtanh(self.layers[l-1].state)
             deltas.append(delta)
 
         deltas = deltas[::-1]
@@ -50,7 +51,7 @@ class Perceptron:
             dW = v @ d
             dT = deltas[l]
             self.layers[l].weights += learning_rate * dW
-            self.layers[l].bias -= learning_rate * dT
+            self.layers[l].thresholds -= learning_rate * dT
 
     def classification_error(self, xs, y_true):
         y_pred = np.zeros_like(y_true)
@@ -75,6 +76,7 @@ class Perceptron:
         n = ys_train.shape[0]
         min_val_error = np.inf
         patience_count = 0
+
         for epoch in range(epochs):
             indices = self.rng.choice(n, size=(n,), replace=False)
             xs = xs_train[indices]
@@ -85,7 +87,10 @@ class Perceptron:
 
             energy = self.energy(xs_train, ys_train)
             validation_error = self.classification_error(xs_val, ys_val)
-            print(f'Epoch: {epoch}/{epochs},\tstep: {epoch*n},\tenergy_train: {energy:.4f},\terror_val: {validation_error:.4f}', end='\r')
+            print((f'Epoch: {epoch}/{epochs},\t'
+                   f'step: {epoch*n},\t'
+                   f'energy_train: {energy:.4f},\t'
+                   f'error_val: {validation_error:.4f}'), end='\r')
 
 
             # Early stopping
@@ -105,17 +110,16 @@ class Layer:
         self.rng = rng
         self.state = np.zeros(layer_size, dtype=float)
         self.weights = self.rng.normal(0, 1, size=(input_size, layer_size))
-        self.bias = np.zeros((layer_size,))
+        self.thresholds = np.zeros((layer_size,))
         self.activation = activation
+        if self.activation == 'tanh':
+            self.activation_func = lambda x: np.tanh(x)
 
     def activate(self, out):
-        if self.activation == 'tanh':
-            activation_func = lambda x: np.tanh(x)
-
-        return activation_func(out)
+        return self.activation_func(out)
 
     def forward(self, x, activate=True):
-        self.state = self.weights.T @ x - self.bias
+        self.state = self.weights.T @ x - self.thresholds
 
         return self.activate(self.state) if activate else self.state
 

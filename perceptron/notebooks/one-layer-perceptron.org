@@ -1,10 +1,20 @@
 #+TITLE: One Layer Perceptron
+#+setupfile: ~/Dropbox/org/orbit/articles/setup_file.org
 
 * Libraries
-#+begin_src jupyter-python :kernel ml
+Import some libraries we'll use
+#+begin_src jupyter-python :exports none :kernel ml
+%load_ext autoreload
+%autoreload 2
 import sys
 sys.path.append('../src')
+#+end_src
 
+#+RESULTS:
+: The autoreload extension is already loaded. To reload it, use:
+:   %reload_ext autoreload
+
+#+begin_src jupyter-python :kernel ml
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,9 +25,9 @@ from model import Perceptron
 
 #+RESULTS:
 
-
 * Data normalization
-#+begin_src jupyter-python :kernel ml
+Read the datasets with pandas
+#+begin_src jupyter-python :kernel ml :file dataset.png :exports both
 names = ['x_1', 'x_2', 'y']
 training_set = pd.read_csv('../datasets/training_set.csv', sep=',', header=None, names=names)
 validation_set = pd.read_csv('../datasets/validation_set.csv', sep=',', header=None, names=names)
@@ -25,9 +35,11 @@ validation_set = pd.read_csv('../datasets/validation_set.csv', sep=',', header=N
 g = sns.scatterplot(data=training_set, x='x_1', y='x_2', hue='y', legend=True, s=8.0)
 #+end_src
 
+#+attr_latex: :width 0.6\textwidth
 #+RESULTS:
-[[file:./.ob-jupyter/1ec76b3f772c88a60ce2c02a83eb7e5289234b5c.png]]
+[[../img/dataset.png]]
 
+Center and standardize the datasets.
 #+begin_src jupyter-python :kernel ml
 x_train = training_set.values[:,:2]
 x_train_normalized = (x_train - x_train.mean()) / x_train.std()
@@ -41,12 +53,13 @@ y_val = validation_set.values[:,-1]
 #+RESULTS:
 
 * Model
-#+begin_src jupyter-python :kernel ml
+Initiate and train the model. Here we use early stopping: stop when the model has not improved for =patience= number of epochs.
+#+begin_src jupyter-python :kernel ml :exports both
 seed = None
 epochs = 1000
 learning_rate = 0.01
 patience = 50
-layer_sizes = [2, 8, 4, 1]
+layer_sizes = [2, 32, 1]
 rng = np.random.default_rng(seed)
 
 net = Perceptron(layer_sizes, rng)
@@ -62,10 +75,10 @@ net.train(x_train_normalized,
 #+end_src
 
 #+RESULTS:
-: Epoch: 128/1000,	step: 1280000,	energy_train: 1984.8405,	error_val: 0.1170
+: Epoch: 222/1000,	step: 2220000,	energy_train: 2084.3852,	error_val: 0.1182
 
-
-#+begin_src jupyter-python :kernel ml :file ../img/perceptron_classification.png
+For simplicity, we'll visualize the results using the validation set rather that a designated test set
+#+begin_src jupyter-python :kernel ml :file ../img/perceptron_classification.png :exports both
 y_pred = np.zeros_like(y_train)
 for i, x in enumerate(x_train_normalized):
     y_pred[i] = np.sign(net.predict(x))
@@ -80,5 +93,23 @@ prediction = pd.DataFrame({
 g = sns.scatterplot(data=prediction, x='x_1', y='x_2', hue='y_pred', legend=True, s=8.0)
 #+end_src
 
+#+attr_latex: :width 0.6\textwidth
 #+RESULTS:
 [[file:../img/perceptron_classification.png]]
+
+Save the weights and thresholds. Turns out I transposed weight matrixes compared to what was requested in the assignment.
+#+begin_src jupyter-python :kernel ml
+W1 = net.layers[1].weights
+t1 = net.layers[1].thresholds
+W2 = net.layers[2].weights
+t2 = net.layers[2].thresholds
+
+np.savetxt("saved_models/w1.csv", W1.T, delimiter=',')
+np.savetxt("saved_models/t1.csv", t1, delimiter=',')
+np.savetxt("saved_models/w2.csv", W2.T, delimiter=',')
+np.savetxt("saved_models/t2.csv", t2, delimiter=',')
+#+end_src
+
+* Appendix
+The model used it the above notebook
+#+include: "../src/model.py" src python

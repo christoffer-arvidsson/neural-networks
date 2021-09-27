@@ -1,46 +1,41 @@
-#+title: Boolean function separability
+#+title: 3-dimensional Boolean functions
 #+setupfile: ~/Dropbox/org/orbit/articles/setup_file.org
 
-For a 3-dimensional hypercube, we can reduce the configurations we have to check by noting that
-1. Rotating the cube does not change separability (256 -> 64)
-2. Mirroring the cube does not change separability (64 -> 32)
-3. Inverting the bits does not change separability (32 -> 16)
+The total number of symmetries accounting for all possible choices of $k \in
+\{0,\ldots,8\}$ is 30. We can use this to narrow down what has to be checked to
+determine linear inseparability. Inverting the bits might change the symmetry,
+but it does not change linear separability, so we can reduce it further to $15$.
 
-This reduces the number of configurations to 16. Checking each invividually, only the ones that have two bits set have a chance of being linearly inseparable. These configurations have planes like $\begin{matrix} 1 &0 \\ 0 &1\end{matrix}$, which notably is the XOR 2D case. There are two cases where this plane shows up: On a face of the cube, or through the center of the cube
-
-An example for each case is shown below
-
+It turns out the linearly inseparable configurations have planes like the XOR
+case $[[1,0],[0,1]]$. There are two cases where this plane shows up: On a face
+of the cube, or through the center of the cube. The names of the vertices of the
+cube, as well as an example for each case is shown below.
 #+begin_src text
-  0----0       1----0
- /    /|      /    /|
-1----0 |     0----0 |
-| 0  | 0     | 0  | 0
-|    |/      |    |/
-0----1       0----1
+   Names        Case 1       Case 2
+   a----b       *----*       1----*
+  /|   /|      /|   /|      /|   /|
+ c----d |     1----0 |     *----0 |
+ | e--|-f     | *--|-*     | 0--|-*
+ |/   |/      |/   |/      |/   |/
+ g----h       0----1       *----1
 #+end_src
 
-To program this, first generate all possible configurations
-#+begin_src jupyter-python
+#+begin_src jupyter-python :exports none
 from itertools import product
 import numpy as np
 
 # Generate all configurations
 states = np.array(list(product([0,1], repeat=8)))
-print(states)
 #+end_src
 
-#+RESULTS:
-: [[0 0 0 ... 0 0 0]
-:  [0 0 0 ... 0 0 1]
-:  [0 0 0 ... 0 1 0]
-:  ...
-:  [1 1 1 ... 1 0 1]
-:  [1 1 1 ... 1 1 0]
-:  [1 1 1 ... 1 1 1]]
+For the first case, there are 6 faces on the cube and 2 ways for each face to
+place the plane (12 possibilities). For the second case, there are another 6
+planes that go through the center (12 possibilities).
 
-Next, to avoid dealing with rotation and mirroring operations, it is easy enough to
-check all 12 configurations of the planes described earlier (6 for same face, 6 for different face).
-
+Instead of checking for exact values of the bits, just check that one diagonal
+is different from the other diagonal in each plane. This takes advantage of
+inversion not changing linear separability. The resulting 12 conditions is
+captured the following python function.
 #+begin_src jupyter-python
 def check_linear_inseparability(a,b,c,d,e,f,g,h):
     expression = \
@@ -50,6 +45,7 @@ def check_linear_inseparability(a,b,c,d,e,f,g,h):
         (a==g and c==e and a!=c) or \
         (c==h and d==g and c!=d) or \
         (a==f and b==e and a!=b) or \
+        \
         (a==h and b==g and b!=a) or \
         (a==h and c==f and c!=a) or \
         (a==h and d==e and d!=a) or \
@@ -62,8 +58,12 @@ def check_linear_inseparability(a,b,c,d,e,f,g,h):
 
 #+RESULTS:
 
-Now, loop over all configurations, counting those that are linearly inseparable. Finally, subtract this from the total number of functions to compute the number of linearly separable functions.
-#+begin_src jupyter-python :exports both
+Checking each of the $256$ configurations and counting those that are linearly
+inseparable using the above condition, we find that out of 256 functions, 152
+are linearly inseparable. That leaves $256 - 152 = 104$ linearly separable
+functions.
+
+#+begin_src jupyter-python :exports none
 linearly_inseparable = 0
 for state in states:
     linearly_inseparable += check_linear_inseparability(*state)
