@@ -9,8 +9,6 @@ sys.path.append('../src')
 #+end_src
 
 #+RESULTS:
-: The autoreload extension is already loaded. To reload it, use:
-:   %reload_ext autoreload
 
 * Dataset
 #+begin_src jupyter-python
@@ -48,7 +46,7 @@ def run_simulation(dataset, k, weight_updates, n_visible, n_hidden,
     random_patterns = machine.rng.choice([-1, 1], size=(generation_realizations, n_visible), replace=True)
     patterns = np.zeros((generation_realizations, generation_iterations, n_visible), dtype=int)
     for r in range(generation_realizations):
-        patterns[r] = machine.generate(random_patterns[r], iterations=generation_realizations)
+        patterns[r] = machine.generate(random_patterns[r], iterations=generation_iterations)
 
     patterns[patterns == -1] = 0
     n_patterns = generation_realizations*generation_iterations
@@ -70,11 +68,11 @@ Train
 k = 100              # monte carlo iterations
 weight_updates = 1000
 n_visible = 3        # N
-n_hidden = [1,2,4,8] # M
+n_hidden = np.arange(1,8) # M
 learning_rate = 0.1
 batch_size = 20
-generation_realizations = 1000
-generation_iterations = 1000
+generation_realizations = 100
+generation_iterations = 10000
 #+end_src
 
 #+RESULTS:
