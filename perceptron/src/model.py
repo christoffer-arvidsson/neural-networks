@@ -109,7 +109,7 @@ class Layer:
     def __init__(self, input_size, layer_size, activation='tanh', rng=None):
         self.rng = rng
         self.state = np.zeros(layer_size, dtype=float)
-        self.weights = self.rng.normal(0, 1, size=(input_size, layer_size))
+        self.weights = self.rng.normal(0, 1/input_size**2, size=(input_size, layer_size))
         self.thresholds = np.zeros((layer_size,))
         self.activation = activation
         if self.activation == 'tanh':

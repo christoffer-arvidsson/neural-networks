@@ -35,9 +35,11 @@ validation_set = pd.read_csv('../datasets/validation_set.csv', sep=',', header=N
 g = sns.scatterplot(data=training_set, x='x_1', y='x_2', hue='y', legend=True, s=8.0)
 #+end_src
 
+#+RESULTS:
+[[file:dataset.png]]
+
 #+attr_latex: :width 0.6\textwidth
 #+RESULTS:
-[[../img/dataset.png]]
 
 Center and standardize the datasets.
 #+begin_src jupyter-python :kernel ml
@@ -59,7 +61,7 @@ seed = None
 epochs = 1000
 learning_rate = 0.01
 patience = 50
-layer_sizes = [2, 32, 1]
+layer_sizes = [2, 16, 1]
 rng = np.random.default_rng(seed)
 
 net = Perceptron(layer_sizes, rng)
@@ -75,7 +77,7 @@ net.train(x_train_normalized,
 #+end_src
 
 #+RESULTS:
-: Epoch: 222/1000,	step: 2220000,	energy_train: 2084.3852,	error_val: 0.1182
+: Epoch: 237/1000,	step: 2370000,	energy_train: 2139.2920,	error_val: 0.1246
 
 For simplicity, we'll visualize the results using the validation set rather that a designated test set
 #+begin_src jupyter-python :kernel ml :file ../img/perceptron_classification.png :exports both
@@ -93,9 +95,11 @@ prediction = pd.DataFrame({
 g = sns.scatterplot(data=prediction, x='x_1', y='x_2', hue='y_pred', legend=True, s=8.0)
 #+end_src
 
-#+attr_latex: :width 0.6\textwidth
 #+RESULTS:
 [[file:../img/perceptron_classification.png]]
+
+#+attr_latex: :width 0.6\textwidth
+#+RESULTS:
 
 Save the weights and thresholds. Turns out I transposed weight matrixes compared to what was requested in the assignment.
 #+begin_src jupyter-python :kernel ml
@@ -109,6 +113,8 @@ np.savetxt("saved_models/t1.csv", t1, delimiter=',')
 np.savetxt("saved_models/w2.csv", W2.T, delimiter=',')
 np.savetxt("saved_models/t2.csv", t2, delimiter=',')
 #+end_src
+
+#+RESULTS:
 
 * Appendix
 The model used it the above notebook
