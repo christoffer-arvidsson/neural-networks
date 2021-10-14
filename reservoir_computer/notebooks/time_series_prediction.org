@@ -1,0 +1,59 @@
+#+TITLE: Chaotic time-series prediction
+#+setupfile: ~/Dropbox/org/orbit/templates/setup_file.org
+
+* Libraries
+#+call: autoreload[:results silent]()
+#+begin_src jupyter-python
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from reservoir import ReservoirComputer
+#+end_src
+
+#+RESULTS:
+* Dataset
+#+begin_src jupyter-python
+training_set = pd.read_csv('../datasets/training-set.csv', header=None)
+test_set = pd.read_csv('../datasets/test-set-5.csv', header=None)
+print('Train shape: ', train_data.values.shape) 
+print('Test shape: ', test_set.values.shape) 
+#+end_src
+
+#+RESULTS:
+: Train shape:  (2, 19900)
+: Test shape:  (3, 100)
+
+* Parameters
+#+begin_src jupyter-python
+input_neurons = 3
+reservoir_neurons = 500
+time_step = 0.02
+ridge_parameter = 0.01
+#+end_src
+
+#+RESULTS:
+
+* Model
+#+begin_src jupyter-python
+reservoir = ReservoirComputer(input_neurons, reservoir_neurons)
+# Feed train data
+reservoir.train(training_set.values.T)
+
+# Feed test data
+reservoir.test()
+#+end_src
+
+#+RESULTS:
+:RESULTS:
+# [goto error]
+: 
+: AttributeErrorTraceback (most recent call last)
+: <ipython-input-86-47f8da46a368> in <module>
+:       4 
+:       5 # Feed test data
+: ----> 6 reservoir.test()
+: 
+: AttributeError: 'ReservoirComputer' object has no attribute 'test'
+:END:
