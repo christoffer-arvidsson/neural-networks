@@ -2,58 +2,135 @@
 #+setupfile: ~/Dropbox/org/orbit/templates/setup_file.org
 
 * Libraries
-#+call: autoreload[:results silent]()
+#+begin_src jupyter-python
+%load_ext autoreload
+%autoreload 2
+
+import sys
+sys.path.append('../src')
+#+end_src
+
+#+RESULTS:
+: The autoreload extension is already loaded. To reload it, use:
+:   %reload_ext autoreload
+
 #+begin_src jupyter-python
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+sns.set_style('whitegrid')
 
 from reservoir import ReservoirComputer
 #+end_src
 
 #+RESULTS:
+
 * Dataset
 #+begin_src jupyter-python
 training_set = pd.read_csv('../datasets/training-set.csv', header=None)
 test_set = pd.read_csv('../datasets/test-set-5.csv', header=None)
-print('Train shape: ', train_data.values.shape) 
+print('Train shape: ', training_set.values.shape) 
 print('Test shape: ', test_set.values.shape) 
 #+end_src
 
 #+RESULTS:
-: Train shape:  (2, 19900)
+: Train shape:  (3, 19900)
 : Test shape:  (3, 100)
+
+#+begin_src jupyter-python :file ../img/lorentz_dataset.png
+fig = plt.figure()
+ax1 = fig.add_subplot(1, 2, 1, projection='3d')
+ax2 = fig.add_subplot(1, 2, 2, projection='3d')
+
+x1,y1,z1 = training_set.values
+x2,y2,z2 = test_set.values
+
+ax1.plot3D(x1,y1,z1, linewidth=0.05, c='black')
+ax1.set_title('Training set')
+ax2.plot3D(x2,y2,z2, linewidth=0.5, c='black')
+ax2.set_title('Test set')
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:../img/lorentz_dataset.png]]
 
 * Parameters
 #+begin_src jupyter-python
 input_neurons = 3
 reservoir_neurons = 500
-time_step = 0.02
+time_step = 0.02 # Unused, but it's the sampling interval for the dataset
+prediction_iterations = 500
 ridge_parameter = 0.01
 #+end_src
 
 #+RESULTS:
 
 * Model
+First train the model with ridge regressino
 #+begin_src jupyter-python
 reservoir = ReservoirComputer(input_neurons, reservoir_neurons)
 # Feed train data
-reservoir.train(training_set.values.T)
-
-# Feed test data
-reservoir.test()
+reservoir.train(training_set.values, ridge_parameter=ridge_parameter)
 #+end_src
 
 #+RESULTS:
-:RESULTS:
-# [goto error]
-: 
-: AttributeErrorTraceback (most recent call last)
-: <ipython-input-86-47f8da46a368> in <module>
-:       4 
-:       5 # Feed test data
-: ----> 6 reservoir.test()
-: 
-: AttributeError: 'ReservoirComputer' object has no attribute 'test'
-:END:
+
+
+#+begin_src jupyter-python
+# Feed test data
+series_pred = reservoir.predict(test_set.values, prediction_iterations=prediction_iterations)
+#+end_src
+
+#+RESULTS:
+
+#+begin_src jupyter-python :file ../img/lorentz_prediction3D.png
+fig = plt.figure()
+ax = fig.add_subplot(1, 1, 1, projection='3d')
+
+xpred,ypred,zpred = series_pred
+x2,y2,z2 = test_set.values
+
+ax.plot3D(xpred,ypred,zpred, linewidth=0.5, c='red', label='Prediction')
+ax.plot3D(x2,y2,z2, linewidth=0.5, c='black', label='Test sequence')
+
+ax.set_title('Training set')
+plt.legend()
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:../img/lorentz_prediction3D.png]]
+
+#+begin_src jupyter-python :file ../img/lorentz_prediction.png
+fig, axes = plt.subplots(3,1, figsize=(12,4), sharex=True)
+
+test_length = test_set.values.shape[1]
+training_length = training_set.values.shape[1]
+
+t = np.arange(0,test_length+prediction_iterations) * time_step
+y = np.concatenate((test_set, series_pred), axis=1)
+y_real = training_set.values[:, :t.shape[0]]
+for i, ax in enumerate(axes):
+    ax.plot(t, y[i], label='Test set')
+    # ax.plot(t, y_real[i], label='Real')
+    ax.axvline(test_length*time_step, c='gray', linestyle='--', label='Prediction start')
+    ax.set_ylabel(['x', 'y', 'z'][i])
+    
+axes[2].set_xlabel('time')
+plt.suptitle('Lorentz system prediction')
+    
+plt.legend(loc='lower right', bbox_to_anchor=(1.22, 1.25))
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:../img/lorentz_prediction.png]]
+
+* Save results
+#+begin_src jupyter-python
+np.savetxt("results/prediction.csv", series_pred[1], delimiter=',')
+#+end_src
+
+#+RESULTS:
