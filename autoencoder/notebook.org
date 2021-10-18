@@ -1,0 +1,296 @@
+#+TITLE: Autoencoder
+#+setupfile: ~/Dropbox/org/orbit/templates/setup_file.org
+
+* Libraries
+#+begin_src jupyter-python :exports none
+%load_ext autoreload
+%autoreload 2
+import sys
+sys.path.append('../src')
+#+end_src
+
+#+RESULTS:
+: The autoreload extension is already loaded. To reload it, use:
+:   %reload_ext autoreload
+
+#+begin_src jupyter-python
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import datetime
+import tensorflow as tf
+from tensorflow.keras import layers
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+#+end_src
+
+#+RESULTS:
+: Num GPUs Available:  1
+
+* Dataset
+Load the dataset
+#+begin_src jupyter-python
+(x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+#+end_src
+
+#+RESULTS:
+
+Plot some examples
+#+begin_src jupyter-python :file img/examples.png
+fig, axes = plt.subplots(2,5, figsize=(5,2))
+for ai,ax in enumerate(axes.reshape(-1)):
+    ax.imshow(x_train[ai], cmap='gray')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:img/examples.png]]
+
+
+Normalize to [0,1] range pixels
+#+begin_src jupyter-python
+num_samples = x_train.shape[0]
+x_train_norm = x_train.astype(np.float32).reshape((num_samples, -1)) / 255
+y_train_norm = y_train.astype(np.float32).reshape((num_samples, -1)) / 255
+#+end_src
+
+#+RESULTS:
+
+* Model
+#+begin_src jupyter-python
+class AutoEncoder(tf.keras.Model):
+    def __init__(self, input_dim, code_dim, layer_sizes):
+        super(AutoEncoder, self).__init__()
+        self.input_dim = input_dim
+        self.code_dim = code_dim
+        self.layer_sizes = layer_sizes
+
+    def build(self, input_shape):
+        initializer = tf.keras.initializers.GlorotUniform()
+        self.dense1 = layers.Dense(self.layer_sizes[0], activation='relu', kernel_initializer=initializer)
+        self.dense2 = layers.Dense(self.code_dim, activation='relu', kernel_initializer=initializer)
+        self.dense3 = layers.Dense(self.layer_sizes[1], activation='relu', kernel_initializer=initializer)
+        
+    def encode(self, x):
+        x = self.dense1(x)
+        x = self.dense2(x)
+        return x
+
+    def decode(self, x):
+        x = self.dense3(x)
+        return x
+   
+    def call(self, inputs):
+        encoding = self.encode(inputs)
+        decoding = self.decode(encoding)
+        return decoding
+#+end_src
+
+#+RESULTS:
+
+* Callbacks
+#+begin_src jupyter-python
+def earlystopping_callback(patience):
+  return tf.keras.callbacks.EarlyStopping (
+    monitor='loss',
+    mode='min',
+    patience=patience,
+    restore_best_weights=True)
+
+#+end_src
+
+  #+RESULTS:
+* Parameters
+#+begin_src jupyter-python
+learning_rate = 0.001
+epochs = 500
+batch_size = 8192
+patience = 5
+layer_sizes = [50, 784]
+input_dim = x_train_norm.shape[1]
+
+loss = tf.keras.losses.MeanSquaredError() # Regression output
+optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+#+end_src
+
+#+RESULTS:
+
+* Autoencoder Code dimension 2
+#+begin_src jupyter-python
+code_dim = 2
+autoencoder1 = AutoEncoder(input_dim, code_dim, layer_sizes)
+autoencoder1.compile(optimizer=optimizer, loss=loss)
+autoencoder1.build((input_dim,))
+
+auto1_history = autoencoder1.fit(
+    x=x_train_norm,
+    y=x_train_norm,
+    epochs=epochs,
+    verbose=0,
+    batch_size=batch_size,
+    shuffle=True,
+    callbacks=[
+        earlystopping_callback(patience),
+    ]
+)
+
+autoencoder1.save(f'trained_models/autoencoder_dim_{code_dim}/model')
+#+end_src
+
+#+RESULTS:
+: INFO:tensorflow:Assets written to: trained_models/autoencoder_dim_2/model/assets
+
+* Autoencoder Code dimension 4
+#+begin_src jupyter-python
+code_dim = 4
+autoencoder2 = AutoEncoder(input_dim, code_dim, layer_sizes)
+autoencoder2.compile(optimizer=optimizer, loss=loss)
+autoencoder2.build((input_dim,))
+
+auto2_history = autoencoder2.fit(
+    x=x_train_norm,
+    y=x_train_norm,
+    epochs=epochs,
+    verbose=0,
+    batch_size=batch_size,
+    shuffle=True,
+    callbacks=[
+        earlystopping_callback(patience),
+    ]
+)
+
+autoencoder1.save(f'trained_models/autoencoder_dim_{code_dim}/model')
+#+end_src
+
+#+RESULTS:
+: INFO:tensorflow:Assets written to: trained_models/autoencoder_dim_4/model/assets
+
+* Evaluation
+Plot the training losses
+#+begin_src jupyter-python :file img/losses.png
+fig, ax = plt.subplots(1,1)
+ax.plot(auto1_history.history['loss'], label=f'Code dim {autoencoder1.code_dim}')
+ax.plot(auto2_history.history['loss'], label=f'Code dim {autoencoder2.code_dim}')
+ax.legend()
+ax.set_title('Training loss')
+ax.set_xlabel('Epoch')
+ax.set_ylabel('MSE loss')
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:img/losses.png]]
+
+Next plot the reconstructions, comparing the two autoencoders to the original input
+#+begin_src jupyter-python :file img/reconstructions.png
+num_references = 10
+reference_indices = [1, 3, 5, 7, 9, 0, 13, 15, 17, 4]
+reference_images = x_train_norm[reference_indices].reshape((num_references, 28, 28))
+auto1_images = tf.reshape(autoencoder1.call(x_train_norm[reference_indices]), (num_references, 28, 28))
+auto2_images = tf.reshape(autoencoder2.call(x_train_norm[reference_indices]), (num_references, 28, 28))
+fig, axes = plt.subplots(3,10, figsize=(10,3), sharey=True, sharex=True)
+axes[0,0].set_ylabel('original')
+for ai,ax in enumerate(axes[0]):
+    ax.imshow(reference_images[ai], cmap='gray')
+    
+axes[1,0].set_ylabel(f'dim {autoencoder1.code_dim}')
+for ai,ax in enumerate(axes[1]):
+    ax.imshow(auto1_images[ai], cmap='gray')
+    
+axes[2,0].set_ylabel(f'dim {autoencoder2.code_dim}')
+for ai,ax in enumerate(axes[2]):
+    ax.imshow(auto2_images[ai], cmap='gray')
+    ax.set_xlabel(ai)
+
+for ax in axes.reshape(-1):
+    ax.set_xticks([])
+    ax.set_yticks([])
+    
+fig.suptitle('Reconstructions')
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:img/reconstructions.png]]
+
+Plot the scatter plots of the digits that are well reproduced (0,1,9).
+#+begin_src jupyter-python
+codes1 = autoencoder1.encode(x_train_norm)
+codes2 = autoencoder2.encode(x_train_norm)
+
+df = pd.DataFrame({
+    'y_train': y_train[:1000],
+    'codes11': codes1[:1000,0],
+    'codes12': codes1[:1000,1],
+    'codes21': codes2[:1000,0],
+    'codes22': codes2[:1000,1],
+    'codes23': codes2[:1000,2],
+    'codes24': codes2[:1000,3]
+})
+
+fig, (ax1,ax2) = plt.subplots(1,2, figsize=(10,3))
+recognized = df[df['y_train'].isin([0,1,9])]
+sns.scatterplot(x='codes11', y='codes12', hue='y_train', data=recognized, s=10, ax=ax1)
+sns.scatterplot(x='codes21', y='codes22', hue='y_train', data=df, s=10, ax=ax2)
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:./.ob-jupyter/53038f15f36025809c1ec3129f44e2e5118265b3.png]]
+
+It seems that a 1 corresonds to small values in both dimensions, a 0
+is large in the second dimension, and a 9 is large in the first
+dimension. Now test these rules
+
+#+begin_src jupyter-python
+digit_names1 = [0,1,9]
+rules1 = np.array([[0,8], [0,0], [8,0]])
+decoded1 = tf.reshape(autoencoder1.decode(rules1), (3,28,28))
+
+fig, axes = plt.subplots(1,3, figsize=(6,2))
+for ai, ax in enumerate(axes):
+    ax.imshow(decoded1[ai], cmap='gray')
+    ax.set_xlabel(digit_names1[ai])
+    ax.set_title(f'{rules1[ai]}')
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:./.ob-jupyter/110e29a178e1a366c283aa1d89bd98db00086def.png]]
+
+Seems to work decently.
+
+For the 4 dimensional codes, we have to manually feed each digit each
+digit to the encoder, to deduce the codes. The recognized digits are
+0,1,8,9.
+
+#+begin_src jupyter-python
+def my_tf_round(x, decimals = 0):
+    multiplier = tf.constant(10**decimals, dtype=x.dtype)
+    return tf.round(x * multiplier) / multiplier
+
+reference_indices = [1, 3, 17, 4]
+digit_names2 = [0,1,8,9]
+rules2 = autoencoder2.encode(x_train_norm[reference_indices])
+rules2 = my_tf_round(rules2, 2)
+decoded2 = tf.reshape(autoencoder2.decode(rules2), (4,28,28))
+
+fig, axes = plt.subplots(1,4, figsize=(8,3))
+for ai, ax in enumerate(axes):
+    ax.imshow(decoded2[ai], cmap='gray')
+    ax.set_xlabel(digit_names2[ai])
+    ax.set_title(f'{rules2[ai]}')
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:./.ob-jupyter/d11130cadcc61e529f211ddbe13e6c64b3e9b21a.png]]
