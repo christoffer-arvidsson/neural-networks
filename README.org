@@ -1,13 +1,13 @@
-#+TITLE: Artificial netual networks
+#+TITLE: Artificial neural networks
 
-These are some implemetations of neural network models part of the /Artificial
+These are some implemetations of neural network models. Part of the /Artificial
 Neural Network/ course at Chalmers.
 
 * Models
 - Hopfield network :: A recurrent network that can learn simple patterns.
 - Restricted Boltzmann machine :: Precursor to perceptron, it fits the data distribution via Monte Carlo simulation.
 - Perceptron :: Simple feed-forward network that uses Stochastic gradient descent.
-- Autoendoder :: An autoencoder trained on the MNIST dataset (though very small bottleleck!)
+- Autoencoder :: An autoencoder trained on the MNIST dataset (though very small bottleleck!)
 - Reservoir computer :: Model for predicting the continuation time series of Lorent's system
 - Convolutional network :: Typical conv net trained on the MNIST dataset
 - Q learning :: Simple agent that uses a q table (no deepQ here) for playing tic tac toe
