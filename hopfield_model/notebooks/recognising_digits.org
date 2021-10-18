@@ -16,11 +16,11 @@ Task is to store patterns of digits into a hopfield network, then try out which 
 
 Import libraries
 
-#+begin_src jupyter-python
+#+begin_src python
 import sys
 sys.path.append('src')
 
-#+begin_src jupyter-python
+#+begin_src python
 from dataset import digit_dataset
 from model import HopfieldNetwork, StochasticHopfieldNetwork
 
@@ -35,7 +35,7 @@ mpl.rc('image', cmap='gray')
 
 Plot the dataset we are working with
 
-#+begin_src jupyter-python :file ./img/digits.png
+#+begin_src python :file ./img/digits.png
 fig, axes = plt.subplots(1, len(digit_dataset))
 for i, ax in enumerate(axes):
     ax.imshow(digit_dataset[i], origin='upper')
@@ -50,7 +50,7 @@ plt.show()
 
 Memorize the patterns by storing them
 
-#+begin_src jupyter-python
+#+begin_src python
 N = np.size(digit_dataset[0])
 model = HopfieldNetwork(N, asynchronous=True, zero_diagonal=True, seed=None)
 model.store(np.reshape(digit_dataset, (-1, N)))
@@ -61,7 +61,7 @@ model.store(np.reshape(digit_dataset, (-1, N)))
 
 Hard-code some example inputs, which we will morph into patterns via asynchronous update.
 
-#+begin_src jupyter-python :file ./img/morphed_patterns.png :results output
+#+begin_src python :file ./img/morphed_patterns.png :results output
 x1 = np.array([[1, 1, -1, -1, -1, -1, -1, -1, 1, 1], [-1, -1, 1, 1, 1, 1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, 1, 1, 1, 1, 1, 1, -1, -1], [-1, -1, 1, 1, 1, 1, 1, 1, -1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, -1, -1, -1, -1, 1, 1, 1, -1], [-1, -1, 1, 1, 1, 1, 1, 1, 1, -1], [1, 1, -1, -1, -1, -1, -1, -1, 1, 1]])
 
 x2 = np.array([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, -1, -1, -1, -1, 1, 1, 1], [1, 1, -1, -1, -1, -1, -1, -1, 1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, -1, -1, -1, 1, 1, -1, -1, -1, 1], [1, 1, -1, -1, -1, -1, -1, -1, 1, 1], [1, 1, 1, -1, -1, -1, -1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
@@ -94,7 +94,7 @@ plt.show()
 [[file:./img/morphed_patterns.png]]
 
 Print text for handin.
-#+begin_src jupyter-python
+#+begin_src python
 for pat in morphed_patterns:
     print(repr(pat))
 #+end_src

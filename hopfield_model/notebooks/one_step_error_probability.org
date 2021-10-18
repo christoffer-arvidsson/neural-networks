@@ -10,11 +10,11 @@
 Model defined in =model.py=
 #+include: "src/model.py" src python :lines "2-60"
 
-#+begin_src jupyter-python
+#+begin_src python
 import sys
 sys.path.append('src')
 
-,#+begin_src jupyter-python
+,#+begin_src python
 from dataset import digit_dataset
 from model import HopfieldNetwork, StochasticHopfieldNetwork
 
@@ -29,7 +29,7 @@ mpl.rc('text', usetex=True)
 #+RESULTS:
 
 Generate random patterns
-#+begin_src jupyter-python
+#+begin_src python
 N = 120
 prob = 1/2
 p = [12, 24, 48, 70, 100, 120]
@@ -44,7 +44,7 @@ def generate_patterns(num_patterns, num_bits, prob, rng):
 
 #+RESULTS:
 
-#+begin_src jupyter-python
+#+begin_src python
 def perform_trials(patterns, num_trials, rng, zero_diagonal=True):
     N = patterns.shape[1]
     model = HopfieldNetwork(N, asynchronous=True, zero_diagonal=zero_diagonal)
@@ -78,7 +78,7 @@ for i, num_patterns in enumerate(p):
 #+RESULTS:
 : NONZERO: Running for p=120...
 
- #+begin_src jupyter-python :results table
+ #+begin_src python :results table
 print('Zeroed diagonal: ', repr(np.around(p_error_zeroed, 4)))
 print('Nonzeroed diagonal: ', repr(np.around(p_error_nonzeroed, 4)))
  #+end_src
@@ -87,7 +87,7 @@ print('Nonzeroed diagonal: ', repr(np.around(p_error_nonzeroed, 4)))
  : Zeroed diagonal:  array([0.0008, 0.0154, 0.0631, 0.0926, 0.1403, 0.1598])
  : Nonzeroed diagonal:  array([0.    , 0.0007, 0.0122, 0.0185, 0.0222, 0.0209])
 
-#+begin_src jupyter-python
+#+begin_src python
 storage_capacities = np.array(p) / N
 fig, ax = plt.subplots(1,1)
 ax.plot(storage_capacities, p_error_zeroed, '.-', label='zeroed diagonal')

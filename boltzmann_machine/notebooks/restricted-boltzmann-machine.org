@@ -57,7 +57,7 @@ the CD-k algorithm converging to a suboptimal solution.
 ** RBM implementation
 #+include: ../src/model.py src python
 ** Dataset
-#+begin_src jupyter-python :exports none
+#+begin_src python :exports none
 import sys
 sys.path.append('../src')
 
@@ -69,7 +69,7 @@ sys.path.append('../src')
 : The autoreload extension is already loaded. To reload it, use:
 :   %reload_ext autoreload
 
-#+begin_src jupyter-python
+#+begin_src python
 import numpy as np
 import seaborn as sns
 import pandas as pd
@@ -94,7 +94,7 @@ dataset = np.array([
 
 ** Simulation
 Define the simulation function
-#+begin_src jupyter-python
+#+begin_src python
 def run_simulation(dataset, k, weight_updates, n_visible, n_hidden,
                    learning_rate, batch_size,
                    n_samples, n_realizations):
@@ -134,7 +134,7 @@ def run_simulation(dataset, k, weight_updates, n_visible, n_hidden,
 #+RESULTS:
 
 Parameters used.
-#+begin_src jupyter-python
+#+begin_src python
 k = 100              # monte carlo iterations
 weight_updates = 3000
 n_visible = 3        # N
@@ -151,7 +151,7 @@ averaging_runs = 3
 
 Let's do some multiprocessing to speed this up. This runs the simulation for
 each value of =n_visible=, =averaging_runs= number of times.
-#+begin_src jupyter-python :exports code
+#+begin_src python :exports code
 def _pool_func(n_hidden):
    print(f'pid: {os.getpid()}\tRunning for n_hidden: {n_hidden}\n')
    return run_simulation(dataset, k, weight_updates, n_visible, n_hidden,
@@ -228,7 +228,7 @@ Done with simulations.
 Now plot the KL-divergence
 
 #+name: kl-div
-#+begin_src jupyter-python :file ../img/kl_div.png :exports both
+#+begin_src python :file ../img/kl_div.png :exports both
 xor = [0,3,5,6] # Represents indices for the xor patterns among random ones
 p_data = np.zeros((2**n_visible))
 p_data[xor] = 1/4
@@ -260,7 +260,7 @@ plt.show()
 [[file:../img/kl_div.png]]
 
 * Checking distributions :noexport:
-#+begin_src jupyter-python :session test
+#+begin_src python :session test
 import sys
 sys.path.append('../src')
 
@@ -327,7 +327,7 @@ print('Done')
 : Done
 
 #+name: fig:test2
-#+begin_src jupyter-python :session test
+#+begin_src python :session test
 plt.bar(np.arange(2**3), p_model)
 plt.xticks(np.arange(2**3), ["000","001","010","011","100","101","110","111"])
 plt.show()

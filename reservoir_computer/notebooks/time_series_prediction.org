@@ -2,7 +2,7 @@
 #+setupfile: ~/Dropbox/org/orbit/templates/setup_file.org
 
 * Libraries
-#+begin_src jupyter-python
+#+begin_src python
 %load_ext autoreload
 %autoreload 2
 
@@ -14,7 +14,7 @@ sys.path.append('../src')
 : The autoreload extension is already loaded. To reload it, use:
 :   %reload_ext autoreload
 
-#+begin_src jupyter-python
+#+begin_src python
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -27,7 +27,7 @@ from reservoir import ReservoirComputer
 #+RESULTS:
 
 * Dataset
-#+begin_src jupyter-python
+#+begin_src python
 training_set = pd.read_csv('../datasets/training-set.csv', header=None)
 test_set = pd.read_csv('../datasets/test-set-5.csv', header=None)
 print('Train shape: ', training_set.values.shape) 
@@ -38,7 +38,7 @@ print('Test shape: ', test_set.values.shape)
 : Train shape:  (3, 19900)
 : Test shape:  (3, 100)
 
-#+begin_src jupyter-python :file ../img/lorentz_dataset.png
+#+begin_src python :file ../img/lorentz_dataset.png
 fig = plt.figure()
 ax1 = fig.add_subplot(1, 2, 1, projection='3d')
 ax2 = fig.add_subplot(1, 2, 2, projection='3d')
@@ -57,7 +57,7 @@ plt.show()
 [[file:../img/lorentz_dataset.png]]
 
 * Parameters
-#+begin_src jupyter-python
+#+begin_src python
 input_neurons = 3
 reservoir_neurons = 500
 time_step = 0.02 # Unused, but it's the sampling interval for the dataset
@@ -69,7 +69,7 @@ ridge_parameter = 0.01
 
 * Model
 First train the model with ridge regressino
-#+begin_src jupyter-python
+#+begin_src python
 reservoir = ReservoirComputer(input_neurons, reservoir_neurons)
 # Feed train data
 reservoir.train(training_set.values, ridge_parameter=ridge_parameter)
@@ -78,14 +78,14 @@ reservoir.train(training_set.values, ridge_parameter=ridge_parameter)
 #+RESULTS:
 
 
-#+begin_src jupyter-python
+#+begin_src python
 # Feed test data
 series_pred = reservoir.predict(test_set.values, prediction_iterations=prediction_iterations)
 #+end_src
 
 #+RESULTS:
 
-#+begin_src jupyter-python :file ../img/lorentz_prediction3D.png
+#+begin_src python :file ../img/lorentz_prediction3D.png
 fig = plt.figure()
 ax = fig.add_subplot(1, 1, 1, projection='3d')
 
@@ -103,7 +103,7 @@ plt.show()
 #+RESULTS:
 [[file:../img/lorentz_prediction3D.png]]
 
-#+begin_src jupyter-python :file ../img/lorentz_prediction.png
+#+begin_src python :file ../img/lorentz_prediction.png
 fig, axes = plt.subplots(3,1, figsize=(12,4), sharex=True)
 
 test_length = test_set.values.shape[1]
@@ -129,7 +129,7 @@ plt.show()
 [[file:../img/lorentz_prediction.png]]
 
 * Save results
-#+begin_src jupyter-python
+#+begin_src python
 np.savetxt("results/prediction.csv", series_pred[1], delimiter=',')
 #+end_src
 

@@ -20,7 +20,7 @@ cube, as well as an example for each case is shown below.
  g----h       0----1       *----1
 #+end_src
 
-#+begin_src jupyter-python :exports none
+#+begin_src python :exports none
 from itertools import product
 import numpy as np
 
@@ -36,7 +36,7 @@ Instead of checking for exact values of the bits, just check that one diagonal
 is different from the other diagonal in each plane. This takes advantage of
 inversion not changing linear separability. The resulting 12 conditions is
 captured the following python function.
-#+begin_src jupyter-python
+#+begin_src python
 def check_linear_inseparability(a,b,c,d,e,f,g,h):
     expression = \
         (a==d and b==c and a!=b) or \
@@ -63,7 +63,7 @@ inseparable using the above condition, we find that out of 256 functions, 152
 are linearly inseparable. That leaves $256 - 152 = 104$ linearly separable
 functions.
 
-#+begin_src jupyter-python :exports none
+#+begin_src python :exports none
 linearly_inseparable = 0
 for state in states:
     linearly_inseparable += check_linear_inseparability(*state)

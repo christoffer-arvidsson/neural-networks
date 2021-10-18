@@ -13,11 +13,11 @@ Model defined in =model.py=
 Notebook for estimating order parameters of a stochastic Hopfield network.
 
 Load some libraries.
-#+begin_src jupyter-python
+#+begin_src python
 import sys
 sys.path.append('src')
 
-#+begin_src jupyter-python
+#+begin_src python
 from model import StochasticHopfieldNetwork
 
 import numpy as np
@@ -30,7 +30,7 @@ mpl.rc('image', cmap='gray')
 #+RESULTS:
 
 Define helper functions to run two simulations
-#+begin_src jupyter-python
+#+begin_src python
 def generate_patterns(num_patterns, num_bits, prob, rng):
     """Generate binary patterns with probability."""
     return rng.choice([-1,1], (num_patterns, num_bits), replace=True, p=[prob, 1-prob])
@@ -58,7 +58,7 @@ def run_simulation(num_patterns, num_bits, num_updates, num_experiments, rng):
 
 Run for $p=7$
 
-#+begin_src jupyter-python
+#+begin_src python
 seed = 1;
 rng = np.random.default_rng(seed=seed)
 noise_parameter = 2
@@ -76,7 +76,7 @@ print(f'Average order parameter: {np.mean(order_parameters1)}')
 : Average order parameter: 0.9028316683416583
 
 Run for $p=45$
-#+begin_src jupyter-python
+#+begin_src python
 p = 45
 order_parameters2 = run_simulation(p, N, num_updates, num_experiments, rng)
 print(f'Average order parameter: {np.mean(order_parameters2)}')

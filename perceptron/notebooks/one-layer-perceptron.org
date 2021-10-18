@@ -3,7 +3,7 @@
 
 * Libraries
 Import some libraries we'll use
-#+begin_src jupyter-python :exports none :kernel ml
+#+begin_src python :exports none :kernel ml
 %load_ext autoreload
 %autoreload 2
 import sys
@@ -14,7 +14,7 @@ sys.path.append('../src')
 : The autoreload extension is already loaded. To reload it, use:
 :   %reload_ext autoreload
 
-#+begin_src jupyter-python :kernel ml
+#+begin_src python :kernel ml
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -27,7 +27,7 @@ from model import Perceptron
 
 * Data normalization
 Read the datasets with pandas
-#+begin_src jupyter-python :kernel ml :file dataset.png :exports both
+#+begin_src python :kernel ml :file dataset.png :exports both
 names = ['x_1', 'x_2', 'y']
 training_set = pd.read_csv('../datasets/training_set.csv', sep=',', header=None, names=names)
 validation_set = pd.read_csv('../datasets/validation_set.csv', sep=',', header=None, names=names)
@@ -42,7 +42,7 @@ g = sns.scatterplot(data=training_set, x='x_1', y='x_2', hue='y', legend=True, s
 #+RESULTS:
 
 Center and standardize the datasets.
-#+begin_src jupyter-python :kernel ml
+#+begin_src python :kernel ml
 x_train = training_set.values[:,:2]
 x_train_normalized = (x_train - x_train.mean()) / x_train.std()
 y_train = training_set.values[:,-1]
@@ -56,7 +56,7 @@ y_val = validation_set.values[:,-1]
 
 * Model
 Initiate and train the model. Here we use early stopping: stop when the model has not improved for =patience= number of epochs.
-#+begin_src jupyter-python :kernel ml :exports both
+#+begin_src python :kernel ml :exports both
 seed = None
 epochs = 1000
 learning_rate = 0.01
@@ -80,7 +80,7 @@ net.train(x_train_normalized,
 : Epoch: 237/1000,	step: 2370000,	energy_train: 2139.2920,	error_val: 0.1246
 
 For simplicity, we'll visualize the results using the validation set rather that a designated test set
-#+begin_src jupyter-python :kernel ml :file ../img/perceptron_classification.png :exports both
+#+begin_src python :kernel ml :file ../img/perceptron_classification.png :exports both
 y_pred = np.zeros_like(y_train)
 for i, x in enumerate(x_train_normalized):
     y_pred[i] = np.sign(net.predict(x))
@@ -102,7 +102,7 @@ g = sns.scatterplot(data=prediction, x='x_1', y='x_2', hue='y_pred', legend=True
 #+RESULTS:
 
 Save the weights and thresholds. Turns out I transposed weight matrixes compared to what was requested in the assignment.
-#+begin_src jupyter-python :kernel ml
+#+begin_src python :kernel ml
 W1 = net.layers[1].weights
 t1 = net.layers[1].thresholds
 W2 = net.layers[2].weights

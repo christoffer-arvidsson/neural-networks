@@ -1,9 +1,9 @@
 #+TITLE: Classification with convolutional neural network
 #+setupfile: ~/Dropbox/org/orbit/templates/setup_file.org
-#+header_args:jupyter-python: :session convnet
+#+header_args:python :session convnet
 
 * Libraries
-#+begin_src jupyter-python :exports none
+#+begin_src python :exports none
 %load_ext autoreload
 %autoreload 2
 #+end_src
@@ -14,7 +14,7 @@
 
 Load the libraris used. I will train on a GPU, but this can run on CPU as well.
 
-#+begin_src jupyter-python
+#+begin_src python
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -36,7 +36,7 @@ Keras dataset for training, validation and local testing. We also have
 to normalize the input pixels to values between 0 and 1. By default
 they are in the range [0,255], so divide by 255.
 
-#+begin_src jupyter-python
+#+begin_src python
 # Get the test data from assignment
 with open('../data/xTest2.bin', 'rb') as f:
     data = list(f.read())
@@ -64,7 +64,7 @@ print(x_train.shape, x_test_challenge.shape, x_test.shape)
 : (60000, 28, 28, 1) (10000, 28, 28, 1) (10000, 28, 28, 1)
 
 Plot some examples of the challenge set
-#+begin_src jupyter-python :file ../img/challenge_examples.png
+#+begin_src python :file ../img/challenge_examples.png
 fig, axes = plt.subplots(2,5, figsize=(10,4))
 for ai,ax in enumerate(axes.reshape(-1)):
     ax.imshow(x_test_challenge[ai], cmap='gray')
@@ -79,7 +79,7 @@ plt.show()
 [[file:../img/challenge_examples.png]]
 
 And some examples for the training set, just to see that they look similar
-#+begin_src jupyter-python :file ../img/train_examples.png
+#+begin_src python :file ../img/train_examples.png
 fig, axes = plt.subplots(2,5, figsize=(10,4))
 for ai,ax in enumerate(axes.reshape(-1)):
     ax.imshow(x_train[ai], cmap='gray')
@@ -95,7 +95,7 @@ plt.show()
 
 * Model
 The model is a CNN equipped with batchnorm, dropout, 3x3 kernels.
-#+begin_src jupyter-python
+#+begin_src python
 class CNN(tf.keras.Model):
     def __init__(self, image_size, target_size, depth):
         super(CNN, self).__init__()
@@ -135,7 +135,7 @@ class CNN(tf.keras.Model):
 * Callbacks
 These callbacks add earlystopping training as well as logging the
 training and validation to tensorboard.
-#+begin_src jupyter-python
+#+begin_src python
 def tensorboard_callback():
   log_dir = f'log/cnn_{datetime.datetime.now().strftime("%Y%m%d-%H%M%S")}'
   return tf.keras.callbacks.TensorBoard(
@@ -154,7 +154,7 @@ def earlystopping_callback(patience):
 #+RESULTS:
 
 Train the model. Here use the Holdout method with a validation split size of $0.1$.
-#+begin_src jupyter-python :exports code
+#+begin_src python :exports code
 image_size = x_train.shape[0]
 target_size = 10
 depth = 4
@@ -428,7 +428,7 @@ Epoch 118/1000
 Summarize the model now that it has been build and trained. Because
 tensorflow shows the summary in the order you build the layers, the
 order doesn't match the flow of data.
-#+begin_src jupyter-python
+#+begin_src python
 cnn.summary()
 #+end_src
 
@@ -465,7 +465,7 @@ _________________________________________________________________
 #+end_example
 
 Plot some predictions
-#+begin_src jupyter-python :file ../img/challenge_predictions.png
+#+begin_src python :file ../img/challenge_predictions.png
 examples = x_test_challenge[:10]
 predictions = cnn.predict(examples)
 
@@ -486,7 +486,7 @@ plt.show()
 
 We can only check the accuracy on the Keras test set, but the hope is
 it matches the provided challenge set.
-#+begin_src jupyter-python
+#+begin_src python
 y_pred = np.argmax(cnn.predict(x_test), axis=1)
 accuracy = np.sum(y_pred == y_test) / 10000
 print(accuracy)
@@ -496,7 +496,7 @@ print(accuracy)
 : 0.9898
 
 Write the challenge predictions to file for uploading.
-#+begin_src jupyter-python
+#+begin_src python
 y_pred = np.argmax(cnn.predict(x_test_challenge), axis=1)
 print(y_pred)
 np.savetxt("results/classifications.csv", y_pred, fmt ='%i')
@@ -506,7 +506,7 @@ np.savetxt("results/classifications.csv", y_pred, fmt ='%i')
 : [4 9 1 ... 8 5 0]
 
 Out of curiosity, plot some examples that are missclassified
-#+begin_src jupyter-python :file ../img/missclassified.png
+#+begin_src python :file ../img/missclassified.png
 y_pred = np.argmax(cnn.predict(x_test), axis=1)
 missclass_mask = y_pred != y_test
 miss_examples = x_test[missclass_mask]
