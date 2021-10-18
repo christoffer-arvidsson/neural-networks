@@ -1,4 +1,4 @@
-#+TITLE: Classification with convolutinoal neural network
+#+TITLE: Classification with convolutional neural network
 #+setupfile: ~/Dropbox/org/orbit/templates/setup_file.org
 #+header_args:jupyter-python: :session convnet
 
