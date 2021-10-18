@@ -1,0 +1,531 @@
+#+TITLE: Classification with convolutinoal neural network
+#+setupfile: ~/Dropbox/org/orbit/templates/setup_file.org
+#+header_args:jupyter-python: :session convnet
+
+* Libraries
+#+begin_src jupyter-python :exports none
+%load_ext autoreload
+%autoreload 2
+#+end_src
+
+#+RESULTS:
+: The autoreload extension is already loaded. To reload it, use:
+:   %reload_ext autoreload
+
+Load the libraris used. I will train on a GPU, but this can run on CPU as well.
+
+#+begin_src jupyter-python
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import datetime
+import tensorflow as tf
+from sklearn.model_selection import train_test_split
+from tensorflow.keras import layers
+from tensorflow.keras.layers import Dense, Reshape, Conv2D, UpSampling2D, Flatten
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+#+end_src
+
+#+RESULTS:
+: Num GPUs Available:  1
+
+* Dataset
+The challenge mnist test set is loaded from file. Use the builtin
+Keras dataset for training, validation and local testing. We also have
+to normalize the input pixels to values between 0 and 1. By default
+they are in the range [0,255], so divide by 255.
+
+#+begin_src jupyter-python
+# Get the test data from assignment
+with open('../data/xTest2.bin', 'rb') as f:
+    data = list(f.read())
+    
+x_test_challenge = np.reshape(data, (10000, 28, 28, 1)).astype('float32')
+x_test_challenge = np.transpose(x_test_challenge, axes=(0, 2, 1, 3))
+
+# Get training data from keras, and split it into a validation set
+(x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+x_train = x_train[:,:,:,None].astype('float32') / 255
+
+# normalize features
+x_test_challenge = x_test_challenge.astype('float32') / 255
+x_test = x_test[:,:,:,None].astype('float32') / 255
+
+# One hot encode targets
+y_train_onehot = tf.one_hot(y_train, np.max(y_train) + 1)
+y_test_onehot = tf.one_hot(y_test, np.max(y_test) + 1)
+
+# Verify that the shapes match
+print(x_train.shape, x_test_challenge.shape, x_test.shape)
+#+end_src
+
+#+RESULTS:
+: (60000, 28, 28, 1) (10000, 28, 28, 1) (10000, 28, 28, 1)
+
+Plot some examples of the challenge set
+#+begin_src jupyter-python :file ../img/challenge_examples.png
+fig, axes = plt.subplots(2,5, figsize=(10,4))
+for ai,ax in enumerate(axes.reshape(-1)):
+    ax.imshow(x_test_challenge[ai], cmap='gray')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    
+plt.suptitle('Challenge test examples')
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:../img/challenge_examples.png]]
+
+And some examples for the training set, just to see that they look similar
+#+begin_src jupyter-python :file ../img/train_examples.png
+fig, axes = plt.subplots(2,5, figsize=(10,4))
+for ai,ax in enumerate(axes.reshape(-1)):
+    ax.imshow(x_train[ai], cmap='gray')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    
+plt.suptitle('Training set examples')
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:../img/train_examples.png]]
+
+* Model
+The model is a CNN equipped with batchnorm, dropout, 3x3 kernels.
+#+begin_src jupyter-python
+class CNN(tf.keras.Model):
+    def __init__(self, image_size, target_size, depth):
+        super(CNN, self).__init__()
+        self.target_size = target_size
+        self.image_size = image_size
+        self.depth = depth
+
+    def build(self, input_shape):
+        kernel_sizes = [5,3]
+        strides = [2,1]
+        self.bnorms = [
+            layers.BatchNormalization()
+          for i in range(self.depth)
+        ]
+        self.convs = [
+            Conv2D(32 * (i+1), kernel_size=kernel_sizes[(i+1) % 2], strides=strides[(i+1) % 2], padding='same', activation='relu')
+          for i in range(self.depth)
+        ]
+        self.flatten = Flatten()
+        self.head = Dense(self.target_size, activation='softmax')
+
+    @tf.function
+    def call(self, inputs):
+        out = inputs
+        for i in range(self.depth):
+            out = self.bnorms[i](out)
+            out = self.convs[i](out)
+            if (i+1) % 2 == 0:
+              out = layers.Dropout(0.4)(out)
+
+        out = self.flatten(out)
+        out = self.head(out)
+        return out
+#+end_src
+
+#+RESULTS:
+* Callbacks
+These callbacks add earlystopping training as well as logging the
+training and validation to tensorboard.
+#+begin_src jupyter-python
+def tensorboard_callback():
+  log_dir = f'log/cnn_{datetime.datetime.now().strftime("%Y%m%d-%H%M%S")}'
+  return tf.keras.callbacks.TensorBoard(
+    log_dir=log_dir,
+    histogram_freq=1,
+    update_freq='batch')
+
+def earlystopping_callback(patience):
+  return tf.keras.callbacks.EarlyStopping (
+    monitor='val_loss',
+    mode='min',
+    patience=patience,
+    restore_best_weights=True)
+#+end_src
+
+#+RESULTS:
+
+Train the model. Here use the Holdout method with a validation split size of $0.1$.
+#+begin_src jupyter-python :exports code
+image_size = x_train.shape[0]
+target_size = 10
+depth = 4
+batch_size = 256
+learning_rate = 1e-3
+epochs = 1000
+patience = 40
+validation_split = 0.1
+loss = tf.keras.losses.MeanSquaredError() # Regression output
+optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+
+cnn = CNN(image_size, target_size, depth)
+cnn.compile(optimizer=optimizer, loss=loss, metrics=[tf.keras.metrics.Accuracy()])
+cnn.build(image_size)
+
+cnn_history = cnn.fit(
+    x=x_train,
+    y=y_train_onehot,
+    validation_split=validation_split,
+    epochs=epochs,
+    verbose=1,
+    batch_size=batch_size,
+    shuffle=True,
+    callbacks=[
+        tensorboard_callback(),
+        earlystopping_callback(patience),
+    ]
+)
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Epoch 1/1000
+211/211 [==============================] - 4s 16ms/step - loss: 0.0405 - accuracy: 1.8519e-06 - val_loss: 0.0152 - val_accuracy: 0.0000e+00
+Epoch 2/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0044 - accuracy: 0.0084 - val_loss: 0.0031 - val_accuracy: 0.0282
+Epoch 3/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0032 - accuracy: 0.0422 - val_loss: 0.0024 - val_accuracy: 0.0597
+Epoch 4/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0029 - accuracy: 0.0650 - val_loss: 0.0033 - val_accuracy: 0.0743
+Epoch 5/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0029 - accuracy: 0.0784 - val_loss: 0.0030 - val_accuracy: 0.0866
+Epoch 6/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0028 - accuracy: 0.0949 - val_loss: 0.0024 - val_accuracy: 0.1143
+Epoch 7/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0027 - accuracy: 0.1571 - val_loss: 0.0026 - val_accuracy: 0.2076
+Epoch 8/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0028 - accuracy: 0.2398 - val_loss: 0.0028 - val_accuracy: 0.2819
+Epoch 9/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0026 - accuracy: 0.3508 - val_loss: 0.0025 - val_accuracy: 0.5037
+Epoch 10/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0025 - accuracy: 0.4345 - val_loss: 0.0021 - val_accuracy: 0.5051
+Epoch 11/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0026 - accuracy: 0.6081 - val_loss: 0.0039 - val_accuracy: 0.6455
+Epoch 12/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0031 - accuracy: 0.7081 - val_loss: 0.0027 - val_accuracy: 0.7782
+Epoch 13/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0026 - accuracy: 0.7752 - val_loss: 0.0032 - val_accuracy: 0.8246
+Epoch 14/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0026 - accuracy: 0.8363 - val_loss: 0.0026 - val_accuracy: 0.8678
+Epoch 15/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0028 - accuracy: 0.8832 - val_loss: 0.0025 - val_accuracy: 0.8978
+Epoch 16/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0029 - accuracy: 0.9022 - val_loss: 0.0034 - val_accuracy: 0.9315
+Epoch 17/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0025 - accuracy: 0.9308 - val_loss: 0.0022 - val_accuracy: 0.9276
+Epoch 18/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0023 - accuracy: 0.9340 - val_loss: 0.0021 - val_accuracy: 0.9556
+Epoch 19/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0027 - accuracy: 0.9575 - val_loss: 0.0032 - val_accuracy: 0.9560
+Epoch 20/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0025 - accuracy: 0.9525 - val_loss: 0.0020 - val_accuracy: 0.9691
+Epoch 21/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9622 - val_loss: 0.0028 - val_accuracy: 0.9654
+Epoch 22/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0025 - accuracy: 0.9677 - val_loss: 0.0022 - val_accuracy: 0.9796
+Epoch 23/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0027 - accuracy: 0.9724 - val_loss: 0.0032 - val_accuracy: 0.9747
+Epoch 24/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0027 - accuracy: 0.9786 - val_loss: 0.0029 - val_accuracy: 0.9805
+Epoch 25/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0027 - accuracy: 0.9802 - val_loss: 0.0034 - val_accuracy: 0.9851
+Epoch 26/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0028 - accuracy: 0.9819 - val_loss: 0.0041 - val_accuracy: 0.9812
+Epoch 27/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0025 - accuracy: 0.9843 - val_loss: 0.0030 - val_accuracy: 0.9838
+Epoch 28/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0026 - accuracy: 0.9853 - val_loss: 0.0027 - val_accuracy: 0.9885
+Epoch 29/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0027 - accuracy: 0.9875 - val_loss: 0.0022 - val_accuracy: 0.9913
+Epoch 30/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9891 - val_loss: 0.0026 - val_accuracy: 0.9900
+Epoch 31/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0028 - accuracy: 0.9889 - val_loss: 0.0030 - val_accuracy: 0.9893
+Epoch 32/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0026 - accuracy: 0.9905 - val_loss: 0.0028 - val_accuracy: 0.9916
+Epoch 33/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0027 - accuracy: 0.9899 - val_loss: 0.0035 - val_accuracy: 0.9894
+Epoch 34/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0028 - accuracy: 0.9909 - val_loss: 0.0030 - val_accuracy: 0.9916
+Epoch 35/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0028 - accuracy: 0.9914 - val_loss: 0.0023 - val_accuracy: 0.9934
+Epoch 36/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0025 - accuracy: 0.9921 - val_loss: 0.0023 - val_accuracy: 0.9925
+Epoch 37/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0027 - accuracy: 0.9918 - val_loss: 0.0022 - val_accuracy: 0.9939
+Epoch 38/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0026 - accuracy: 0.9922 - val_loss: 0.0037 - val_accuracy: 0.9905
+Epoch 39/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0025 - accuracy: 0.9928 - val_loss: 0.0025 - val_accuracy: 0.9940
+Epoch 40/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9933 - val_loss: 0.0020 - val_accuracy: 0.9951
+Epoch 41/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9940 - val_loss: 0.0029 - val_accuracy: 0.9940
+Epoch 42/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9940 - val_loss: 0.0024 - val_accuracy: 0.9945
+Epoch 43/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0025 - accuracy: 0.9938 - val_loss: 0.0024 - val_accuracy: 0.9944
+Epoch 44/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0028 - accuracy: 0.9937 - val_loss: 0.0025 - val_accuracy: 0.9947
+Epoch 45/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0032 - accuracy: 0.9923 - val_loss: 0.0025 - val_accuracy: 0.9937
+Epoch 46/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0026 - accuracy: 0.9939 - val_loss: 0.0025 - val_accuracy: 0.9948
+Epoch 47/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0026 - accuracy: 0.9940 - val_loss: 0.0029 - val_accuracy: 0.9936
+Epoch 48/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0029 - accuracy: 0.9940 - val_loss: 0.0024 - val_accuracy: 0.9951
+Epoch 49/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9945 - val_loss: 0.0026 - val_accuracy: 0.9945
+Epoch 50/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9950 - val_loss: 0.0025 - val_accuracy: 0.9951
+Epoch 51/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9948 - val_loss: 0.0023 - val_accuracy: 0.9950
+Epoch 52/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9948 - val_loss: 0.0027 - val_accuracy: 0.9952
+Epoch 53/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0027 - accuracy: 0.9946 - val_loss: 0.0038 - val_accuracy: 0.9929
+Epoch 54/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0026 - accuracy: 0.9945 - val_loss: 0.0029 - val_accuracy: 0.9942
+Epoch 55/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0027 - accuracy: 0.9946 - val_loss: 0.0023 - val_accuracy: 0.9957
+Epoch 56/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0025 - accuracy: 0.9949 - val_loss: 0.0020 - val_accuracy: 0.9959
+Epoch 57/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0021 - accuracy: 0.9955 - val_loss: 0.0019 - val_accuracy: 0.9956
+Epoch 58/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0021 - accuracy: 0.9957 - val_loss: 0.0025 - val_accuracy: 0.9957
+Epoch 59/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0022 - accuracy: 0.9955 - val_loss: 0.0039 - val_accuracy: 0.9931
+Epoch 60/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0022 - accuracy: 0.9954 - val_loss: 0.0024 - val_accuracy: 0.9959
+Epoch 61/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0021 - accuracy: 0.9959 - val_loss: 0.0019 - val_accuracy: 0.9958
+Epoch 62/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0025 - accuracy: 0.9953 - val_loss: 0.0022 - val_accuracy: 0.9964
+Epoch 63/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0026 - accuracy: 0.9954 - val_loss: 0.0030 - val_accuracy: 0.9945
+Epoch 64/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0022 - accuracy: 0.9957 - val_loss: 0.0024 - val_accuracy: 0.9958
+Epoch 65/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0022 - accuracy: 0.9961 - val_loss: 0.0027 - val_accuracy: 0.9952
+Epoch 66/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0023 - accuracy: 0.9958 - val_loss: 0.0028 - val_accuracy: 0.9955
+Epoch 67/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9959 - val_loss: 0.0022 - val_accuracy: 0.9962
+Epoch 68/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0023 - accuracy: 0.9961 - val_loss: 0.0025 - val_accuracy: 0.9957
+Epoch 69/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0027 - accuracy: 0.9953 - val_loss: 0.0032 - val_accuracy: 0.9952
+Epoch 70/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0028 - accuracy: 0.9953 - val_loss: 0.0021 - val_accuracy: 0.9962
+Epoch 71/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0023 - accuracy: 0.9961 - val_loss: 0.0025 - val_accuracy: 0.9958
+Epoch 72/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0023 - accuracy: 0.9959 - val_loss: 0.0027 - val_accuracy: 0.9960
+Epoch 73/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0030 - accuracy: 0.9952 - val_loss: 0.0030 - val_accuracy: 0.9955
+Epoch 74/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0028 - accuracy: 0.9957 - val_loss: 0.0030 - val_accuracy: 0.9956
+Epoch 75/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9960 - val_loss: 0.0028 - val_accuracy: 0.9956
+Epoch 76/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0026 - accuracy: 0.9957 - val_loss: 0.0033 - val_accuracy: 0.9949
+Epoch 77/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0023 - accuracy: 0.9963 - val_loss: 0.0023 - val_accuracy: 0.9964
+Epoch 78/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0021 - accuracy: 0.9965 - val_loss: 0.0018 - val_accuracy: 0.9967
+Epoch 79/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0023 - accuracy: 0.9961 - val_loss: 0.0025 - val_accuracy: 0.9961
+Epoch 80/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0026 - accuracy: 0.9957 - val_loss: 0.0025 - val_accuracy: 0.9963
+Epoch 81/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9962 - val_loss: 0.0022 - val_accuracy: 0.9963
+Epoch 82/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0022 - accuracy: 0.9966 - val_loss: 0.0020 - val_accuracy: 0.9970
+Epoch 83/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0021 - accuracy: 0.9965 - val_loss: 0.0024 - val_accuracy: 0.9963
+Epoch 84/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0022 - accuracy: 0.9962 - val_loss: 0.0024 - val_accuracy: 0.9962
+Epoch 85/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0022 - accuracy: 0.9965 - val_loss: 0.0025 - val_accuracy: 0.9962
+Epoch 86/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0023 - accuracy: 0.9965 - val_loss: 0.0022 - val_accuracy: 0.9967
+Epoch 87/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0022 - accuracy: 0.9967 - val_loss: 0.0024 - val_accuracy: 0.9965
+Epoch 88/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0022 - accuracy: 0.9966 - val_loss: 0.0023 - val_accuracy: 0.9965
+Epoch 89/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0027 - accuracy: 0.9959 - val_loss: 0.0023 - val_accuracy: 0.9969
+Epoch 90/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0021 - accuracy: 0.9969 - val_loss: 0.0024 - val_accuracy: 0.9966
+Epoch 91/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0029 - accuracy: 0.9958 - val_loss: 0.0026 - val_accuracy: 0.9962
+Epoch 92/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0023 - accuracy: 0.9964 - val_loss: 0.0028 - val_accuracy: 0.9960
+Epoch 93/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9964 - val_loss: 0.0026 - val_accuracy: 0.9962
+Epoch 94/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0022 - accuracy: 0.9967 - val_loss: 0.0028 - val_accuracy: 0.9959
+Epoch 95/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0026 - accuracy: 0.9962 - val_loss: 0.0027 - val_accuracy: 0.9961
+Epoch 96/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0021 - accuracy: 0.9968 - val_loss: 0.0022 - val_accuracy: 0.9968
+Epoch 97/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0029 - accuracy: 0.9959 - val_loss: 0.0022 - val_accuracy: 0.9966
+Epoch 98/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0023 - accuracy: 0.9967 - val_loss: 0.0028 - val_accuracy: 0.9963
+Epoch 99/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0023 - accuracy: 0.9966 - val_loss: 0.0025 - val_accuracy: 0.9963
+Epoch 100/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0025 - accuracy: 0.9963 - val_loss: 0.0028 - val_accuracy: 0.9960
+Epoch 101/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0029 - accuracy: 0.9959 - val_loss: 0.0026 - val_accuracy: 0.9964
+Epoch 102/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9967 - val_loss: 0.0024 - val_accuracy: 0.9967
+Epoch 103/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0023 - accuracy: 0.9968 - val_loss: 0.0024 - val_accuracy: 0.9966
+Epoch 104/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0022 - accuracy: 0.9968 - val_loss: 0.0021 - val_accuracy: 0.9970
+Epoch 105/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0019 - accuracy: 0.9974 - val_loss: 0.0019 - val_accuracy: 0.9974
+Epoch 106/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0021 - accuracy: 0.9971 - val_loss: 0.0027 - val_accuracy: 0.9964
+Epoch 107/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9967 - val_loss: 0.0022 - val_accuracy: 0.9971
+Epoch 108/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0020 - accuracy: 0.9972 - val_loss: 0.0024 - val_accuracy: 0.9967
+Epoch 109/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0020 - accuracy: 0.9972 - val_loss: 0.0019 - val_accuracy: 0.9973
+Epoch 110/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0025 - accuracy: 0.9965 - val_loss: 0.0023 - val_accuracy: 0.9969
+Epoch 111/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0025 - accuracy: 0.9966 - val_loss: 0.0024 - val_accuracy: 0.9968
+Epoch 112/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0022 - accuracy: 0.9971 - val_loss: 0.0022 - val_accuracy: 0.9967
+Epoch 113/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0023 - accuracy: 0.9970 - val_loss: 0.0025 - val_accuracy: 0.9966
+Epoch 114/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0023 - accuracy: 0.9968 - val_loss: 0.0026 - val_accuracy: 0.9967
+Epoch 115/1000
+211/211 [==============================] - 3s 15ms/step - loss: 0.0022 - accuracy: 0.9971 - val_loss: 0.0021 - val_accuracy: 0.9970
+Epoch 116/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9969 - val_loss: 0.0033 - val_accuracy: 0.9959
+Epoch 117/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0024 - accuracy: 0.9966 - val_loss: 0.0031 - val_accuracy: 0.9959
+Epoch 118/1000
+211/211 [==============================] - 3s 14ms/step - loss: 0.0028 - accuracy: 0.9963 - val_loss: 0.0026 - val_accuracy: 0.9969
+#+end_example
+
+Summarize the model now that it has been build and trained. Because
+tensorflow shows the summary in the order you build the layers, the
+order doesn't match the flow of data.
+#+begin_src jupyter-python
+cnn.summary()
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Model: "cnn_40"
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+batch_normalization (BatchNo multiple                  4         
+_________________________________________________________________
+batch_normalization_1 (Batch multiple                  128       
+_________________________________________________________________
+batch_normalization_2 (Batch multiple                  256       
+_________________________________________________________________
+batch_normalization_3 (Batch multiple                  384       
+_________________________________________________________________
+conv2d (Conv2D)              multiple                  320       
+_________________________________________________________________
+conv2d_1 (Conv2D)            multiple                  51264     
+_________________________________________________________________
+conv2d_2 (Conv2D)            multiple                  55392     
+_________________________________________________________________
+conv2d_3 (Conv2D)            multiple                  307328    
+_________________________________________________________________
+flatten (Flatten)            multiple                  0         
+_________________________________________________________________
+dense (Dense)                multiple                  62730     
+=================================================================
+Total params: 477,806
+Trainable params: 477,420
+Non-trainable params: 386
+_________________________________________________________________
+#+end_example
+
+Plot some predictions
+#+begin_src jupyter-python :file ../img/challenge_predictions.png
+examples = x_test_challenge[:10]
+predictions = cnn.predict(examples)
+
+fig, axes = plt.subplots(2,5, figsize=(10,4))
+for ai,ax in enumerate(axes.reshape(-1)):
+    ax.imshow(examples[ai], cmap='gray')
+    ax.set_title(np.argmax(predictions[ai]))
+    ax.set_xticks([])
+    ax.set_yticks([])
+    
+plt.suptitle('Predictions on the challenge set')
+fig.tight_layout()
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:../img/challenge_predictions.png]]
+
+We can only check the accuracy on the Keras test set, but the hope is
+it matches the provided challenge set.
+#+begin_src jupyter-python
+y_pred = np.argmax(cnn.predict(x_test), axis=1)
+accuracy = np.sum(y_pred == y_test) / 10000
+print(accuracy)
+#+end_src
+
+#+RESULTS:
+: 0.9898
+
+Write the challenge predictions to file for uploading.
+#+begin_src jupyter-python
+y_pred = np.argmax(cnn.predict(x_test_challenge), axis=1)
+print(y_pred)
+np.savetxt("results/classifications.csv", y_pred, fmt ='%i')
+#+end_src
+
+#+RESULTS:
+: [4 9 1 ... 8 5 0]
+
+Out of curiosity, plot some examples that are missclassified
+#+begin_src jupyter-python :file ../img/missclassified.png
+y_pred = np.argmax(cnn.predict(x_test), axis=1)
+missclass_mask = y_pred != y_test
+miss_examples = x_test[missclass_mask]
+miss_y_pred = y_pred[missclass_mask]
+miss_truth = y_test[missclass_mask]
+
+fig, axes = plt.subplots(2,5, figsize=(10,4))
+for ai,ax in enumerate(axes.reshape(-1)):
+    ax.imshow(miss_examples[ai], cmap='gray')
+    ax.set_title(f'T:{miss_truth[ai]} P:{np.argmax(miss_y_pred[ai])}')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    
+plt.suptitle('Predictions on bad examples')
+fig.tight_layout()
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:../img/missclassified.png]]
+
+Abnormal looking digits and thick strokes seem to be the issue here.
