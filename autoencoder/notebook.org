@@ -1,5 +1,56 @@
-#+TITLE: Autoencoder
+#+TITLE: Artificial neural networks: Autoencoder
 #+setupfile: ~/Dropbox/org/orbit/templates/setup_file.org
+#+property: header-args:python :session autoencoder :eval never-export :exports both :async yes
+
+#+latex_header: \usepackage{graphicx}
+#+latex_header: \usepackage{subcaption}
+
+The montage of reconstructions are shown in Figure
+\ref{fig:reconstruction}. For the 2-width bottleneck, there are 2
+reconstructed digits: 0 and 1. For the 4-width only count digits 0,1,3
+and 9.
+
+In figure \ref{fig:auto1-rules}, we can see that the rules to encode the
+numbers 0,1 for the 2-width autoencoder. The decision boundary is
+drawn in red, and was found to be $c_{2} = 2.5c_{1}$. Gray dots
+represent other digits.
+
+For the 4-width autoencoder, the process was to start from the first
+pattern representing 0, then manipulate the pattern to cross one of
+the boundaries for each digit. The rules found were
+\begin{equation}
+\begin{cases}
+0: c_1 < c_2, c_3 < 2, c_2 > c_4, c_3 < c_4 \\
+1: c_2 < 2, c_3 > 4, c_4 < c_3\\
+3: c_1 > 2, c_1 > c_3, c_1 > c_4, c_2 < c_3, c_2 > c_4 \\
+9: c_1 < c_2, c_2 > c_3, c_2 > c_4, c_3 > c_4
+\end{cases}
+\end{equation}
+and are demonstrated in Figure \ref{fig:auto2-rules}.
+
+#+begin_export latex
+\begin{figure}[htbp]
+\centering
+\begin{subfigure}{0.9\textwidth}
+  \includegraphics[width=1.0\textwidth]{img/reconstructions.png}
+  \caption{Reconstructions of both autoencoders.}
+  \label{fig:reconstruction}
+\end{subfigure}
+\begin{subfigure}{0.4\textwidth}
+  \centering
+  \includegraphics[width=1.0\linewidth]{img/auto1_scatter.png}
+  \caption{2-width}
+  \label{fig:auto1-rules}
+\end{subfigure}
+\begin{subfigure}{0.5\textwidth}
+  \centering
+  \includegraphics[width=1.0\linewidth]{img/auto2_rule.png}
+  \caption{4-width}
+  \label{fig:auto2-rules}
+\end{subfigure}
+\caption{Demonstration of the reconstruction (\ref{fig:reconstruction}), and the rules found shown in the 2D case (\ref{fig:auto1-rules}) or via inspection (\ref{fig:auto2-rules}).}
+\end{figure}
+#+end_export
 
 * Libraries
 #+begin_src python :exports none
@@ -13,6 +64,7 @@ sys.path.append('../src')
 : The autoreload extension is already loaded. To reload it, use:
 :   %reload_ext autoreload
 
+Import some libraries
 #+begin_src python
 import pandas as pd
 import numpy as np
@@ -22,18 +74,22 @@ import datetime
 import tensorflow as tf
 from tensorflow.keras import layers
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+sns.set_style('whitegrid')
+sns.set_palette('pastel', 8)
 #+end_src
 
 #+RESULTS:
 : Num GPUs Available:  1
 
 * Dataset
-Load the dataset
+Load the dataset using keras
 #+begin_src python
 (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+print(x_train.shape, y_train.shape)
 #+end_src
 
 #+RESULTS:
+: (60000, 28, 28) (60000,)
 
 Plot some examples
 #+begin_src python :file img/examples.png
@@ -50,16 +106,18 @@ plt.show()
 [[file:img/examples.png]]
 
 
-Normalize to [0,1] range pixels
+Normalize to [0,1] range pixels by dividing by 255
 #+begin_src python
-num_samples = x_train.shape[0]
-x_train_norm = x_train.astype(np.float32).reshape((num_samples, -1)) / 255
-y_train_norm = y_train.astype(np.float32).reshape((num_samples, -1)) / 255
+num_samples_train = x_train.shape[0]
+num_samples_test = x_test.shape[0]
+x_train_norm = x_train.astype(np.float32).reshape((num_samples_train, -1)) / 255
+x_test_norm = x_test.astype(np.float32).reshape((num_samples_test, -1)) / 255
 #+end_src
 
 #+RESULTS:
 
 * Model
+Define the model, which uses uniform glorot weigth initialization
 #+begin_src python
 class AutoEncoder(tf.keras.Model):
     def __init__(self, input_dim, code_dim, layer_sizes):
@@ -91,24 +149,12 @@ class AutoEncoder(tf.keras.Model):
 
 #+RESULTS:
 
-* Callbacks
-#+begin_src python
-def earlystopping_callback(patience):
-  return tf.keras.callbacks.EarlyStopping (
-    monitor='loss',
-    mode='min',
-    patience=patience,
-    restore_best_weights=True)
-
-#+end_src
-
-  #+RESULTS:
 * Parameters
+The parameters used
 #+begin_src python
 learning_rate = 0.001
-epochs = 500
+epochs = 800
 batch_size = 8192
-patience = 5
 layer_sizes = [50, 784]
 input_dim = x_train_norm.shape[1]
 
@@ -119,10 +165,11 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 #+RESULTS:
 
 * Autoencoder Code dimension 2
+First train the 2-width autoencoder
 #+begin_src python
 code_dim = 2
 autoencoder1 = AutoEncoder(input_dim, code_dim, layer_sizes)
-autoencoder1.compile(optimizer=optimizer, loss=loss)
+autoencoder1.compile(optimizer=optimizer, loss=loss, metrics=['acc'])
 autoencoder1.build((input_dim,))
 
 auto1_history = autoencoder1.fit(
@@ -132,9 +179,6 @@ auto1_history = autoencoder1.fit(
     verbose=0,
     batch_size=batch_size,
     shuffle=True,
-    callbacks=[
-        earlystopping_callback(patience),
-    ]
 )
 
 autoencoder1.save(f'trained_models/autoencoder_dim_{code_dim}/model')
@@ -144,6 +188,7 @@ autoencoder1.save(f'trained_models/autoencoder_dim_{code_dim}/model')
 : INFO:tensorflow:Assets written to: trained_models/autoencoder_dim_2/model/assets
 
 * Autoencoder Code dimension 4
+Next the 4-width
 #+begin_src python
 code_dim = 4
 autoencoder2 = AutoEncoder(input_dim, code_dim, layer_sizes)
@@ -157,9 +202,6 @@ auto2_history = autoencoder2.fit(
     verbose=0,
     batch_size=batch_size,
     shuffle=True,
-    callbacks=[
-        earlystopping_callback(patience),
-    ]
 )
 
 autoencoder1.save(f'trained_models/autoencoder_dim_{code_dim}/model')
@@ -169,7 +211,7 @@ autoencoder1.save(f'trained_models/autoencoder_dim_{code_dim}/model')
 : INFO:tensorflow:Assets written to: trained_models/autoencoder_dim_4/model/assets
 
 * Evaluation
-Plot the training losses
+Plot the training losses. The unusually high loss is because of black pixels, which would be fixed by using sigmoid instead.
 #+begin_src python :file img/losses.png
 fig, ax = plt.subplots(1,1)
 ax.plot(auto1_history.history['loss'], label=f'Code dim {autoencoder1.code_dim}')
@@ -187,7 +229,7 @@ plt.show()
 Next plot the reconstructions, comparing the two autoencoders to the original input
 #+begin_src python :file img/reconstructions.png
 num_references = 10
-reference_indices = [1, 3, 5, 7, 9, 0, 13, 15, 17, 4]
+reference_indices = [1, 3, 28, 7, 9, 0, 13, 15, 31, 4]
 reference_images = x_train_norm[reference_indices].reshape((num_references, 28, 28))
 auto1_images = tf.reshape(autoencoder1.call(x_train_norm[reference_indices]), (num_references, 28, 28))
 auto2_images = tf.reshape(autoencoder2.call(x_train_norm[reference_indices]), (num_references, 28, 28))
@@ -216,41 +258,40 @@ plt.show()
 #+RESULTS:
 [[file:img/reconstructions.png]]
 
-Plot the scatter plots of the digits that are well reproduced (0,1,9).
-#+begin_src python
+Plot the scatter plots of the digits that are well reproduced (0,1).
+#+name: auto1_scatter
+#+begin_src python :file img/auto1_scatter.png
 codes1 = autoencoder1.encode(x_train_norm)
-codes2 = autoencoder2.encode(x_train_norm)
 
 df = pd.DataFrame({
-    'y_train': y_train[:1000],
-    'codes11': codes1[:1000,0],
-    'codes12': codes1[:1000,1],
-    'codes21': codes2[:1000,0],
-    'codes22': codes2[:1000,1],
-    'codes23': codes2[:1000,2],
-    'codes24': codes2[:1000,3]
+    'y_train': y_train[:10000],
+    'codes11': codes1[:10000,0],
+    'codes12': codes1[:10000,1],
 })
 
-fig, (ax1,ax2) = plt.subplots(1,2, figsize=(10,3))
-recognized = df[df['y_train'].isin([0,1,9])]
-sns.scatterplot(x='codes11', y='codes12', hue='y_train', data=recognized, s=10, ax=ax1)
-sns.scatterplot(x='codes21', y='codes22', hue='y_train', data=df, s=10, ax=ax2)
+fig, ax1 = plt.subplots(1,1)
+recognized = df[df['y_train'].isin([0,1])]
+sns.scatterplot(x='codes11', y='codes12', data=df, s=2, ax=ax1, color='dimgray', label='other', alpha=0.2)
+sns.scatterplot(x='codes11', y='codes12', data=recognized, s=10, ax=ax1, hue='y_train', palette='tab10')
+
+x = np.arange(5)
+sns.lineplot(x=x, y=2.5*x-2, color='tab:red', label='$c_2 = 2.5*c_1 - 2$')
+ax1.set_xlabel('$c_1$')
+ax1.set_ylabel('$c_2$')
+plt.axis('equal')
 plt.show()
 #+end_src
 
-#+RESULTS:
-[[file:./.ob-jupyter/53038f15f36025809c1ec3129f44e2e5118265b3.png]]
+#+RESULTS: auto1_scatter
+[[file:img/auto1_scatter.png]]
 
-It seems that a 1 corresonds to small values in both dimensions, a 0
-is large in the second dimension, and a 9 is large in the first
-dimension. Now test these rules
+Now test that this is correct by feeding such rules to the decoder.
+#+begin_src python :file img/auto1_test.png
+digit_names1 = [0,1]
+rules1 = np.array([[4,2], [0, 4]])
+decoded1 = tf.reshape(autoencoder1.decode(rules1), (2,28,28))
 
-#+begin_src python
-digit_names1 = [0,1,9]
-rules1 = np.array([[0,8], [0,0], [8,0]])
-decoded1 = tf.reshape(autoencoder1.decode(rules1), (3,28,28))
-
-fig, axes = plt.subplots(1,3, figsize=(6,2))
+fig, axes = plt.subplots(1,2, figsize=(4,2))
 for ai, ax in enumerate(axes):
     ax.imshow(decoded1[ai], cmap='gray')
     ax.set_xlabel(digit_names1[ai])
@@ -262,23 +303,124 @@ plt.show()
 #+end_src
 
 #+RESULTS:
-[[file:./.ob-jupyter/110e29a178e1a366c283aa1d89bd98db00086def.png]]
+[[file:img/auto1_test.png]]
 
 Seems to work decently.
 
 For the 4 dimensional codes, we have to manually feed each digit each
-digit to the encoder, to deduce the codes. The recognized digits are
-0,1,8,9.
+digit to the encoder, to deduce the codes. First try to see some pattern in the values
 
 #+begin_src python
+codes2 = autoencoder2.encode(x_train_norm)
+df = pd.DataFrame({
+    'y_train': y_train[:1000],
+    'codes21': codes2[:1000,0],
+    'codes22': codes2[:1000,1],
+    'codes23': codes2[:1000,2],
+    'codes24': codes2[:1000,3]
+})
+
+recognized = df[df['y_train'].isin([0,1,3,9])]
+print(recognized[:50].sort_values('y_train'))
+
+#+end_src
+
+#+RESULTS:
+#+begin_example
+     y_train   codes21   codes22   codes23   codes24
+1          0  1.506300  4.223270  1.417740  4.223140
+34         0  2.600813  5.218721  3.432591  4.870537
+51         0  2.716170  6.140865  1.286492  3.007421
+56         0  2.197612  4.868561  0.416199  1.378339
+63         0  2.316725  5.452721  1.698727  3.623751
+68         0  1.474426  2.119676  0.000000  0.663847
+21         0  1.540079  4.495246  1.178635  4.094957
+37         0  1.891948  4.507526  2.065094  4.746136
+69         0  3.787859  5.554997  2.741277  3.174601
+75         0  2.662150  4.683498  2.231722  3.759427
+81         0  3.013758  5.650981  3.174357  4.471297
+88         0  2.370348  3.708973  0.162838  1.418381
+95         0  3.210102  4.969077  2.660977  4.404128
+72         1  2.282557  0.000000  4.889923  1.551933
+77         1  0.683509  0.315113  7.579575  7.136540
+67         1  1.352463  0.116192  6.542935  4.908722
+78         1  1.342400  0.929256  7.226254  6.435058
+59         1  0.133320  0.439445  6.803638  7.822259
+70         1  3.130086  1.336082  2.322385  1.329246
+99         1  0.798034  0.541863  6.304677  5.070292
+102        1  2.567915  0.082726  4.570637  1.074626
+14         1  2.548239  0.489854  4.555074  0.862709
+3          1  0.000000  1.122928  6.869755  7.658586
+40         1  2.725270  0.271296  6.713668  2.446646
+6          1  3.242668  0.677741  4.577750  0.651587
+8          1  2.291778  0.664136  4.534689  0.736977
+24         1  1.819650  1.685670  0.841389  1.899881
+23         1  0.000000  1.171599  6.480863  7.197600
+98         3  3.806474  3.037708  3.278402  1.805420
+86         3  2.031259  2.456175  1.350957  0.114761
+7          3  4.068478  5.555198  3.698795  4.099518
+10         3  4.013341  3.238267  3.325318  3.734228
+74         3  3.904247  3.653650  3.334372  1.935418
+12         3  3.953216  3.494274  1.753198  1.376898
+44         3  2.230504  2.187160  2.517715  0.387588
+27         3  4.827397  6.006587  3.028436  3.521120
+30         3  2.132522  2.159385  0.886341  0.011435
+50         3  2.745044  1.844456  1.851760  2.166013
+49         3  4.313576  4.977996  3.985140  4.263432
+43         9  1.720235  4.069072  6.048046  3.446341
+22         9  0.261645  3.339627  4.058847  3.428338
+57         9  0.295888  5.195308  5.687542  3.464123
+54         9  1.041837  5.302668  3.478742  0.938242
+80         9  2.686928  2.804761  1.468161  1.882115
+33         9  0.372463  4.739004  5.575132  4.799184
+87         9  0.560313  6.605339  5.076427  3.186312
+4          9  0.599144  5.389400  3.964761  1.625590
+48         9  2.552298  2.666615  2.529614  0.873427
+45         9  0.405392  6.182552  4.904752  2.325730
+19         9  0.709769  3.971351  6.517263  4.460024
+#+end_example
+
+It's much easier to just plot multiple plots.
+#+begin_src python :file img/auto2_components.png
+fig, (ax1,ax2,ax3,ax4,ax5,ax6) = plt.subplots(1,6, figsize=(18,3))
+sns.scatterplot(x='codes21', y='codes22', data=recognized, s=10, ax=ax1, hue='y_train', palette='tab10')
+sns.scatterplot(x='codes21', y='codes23', data=recognized, s=10, ax=ax2, hue='y_train', palette='tab10')
+sns.scatterplot(x='codes21', y='codes24', data=recognized, s=10, ax=ax3, hue='y_train', palette='tab10')
+sns.scatterplot(x='codes22', y='codes23', data=recognized, s=10, ax=ax4, hue='y_train', palette='tab10')
+sns.scatterplot(x='codes22', y='codes24', data=recognized, s=10, ax=ax5, hue='y_train', palette='tab10')
+sns.scatterplot(x='codes23', y='codes24', data=recognized, s=10, ax=ax6, hue='y_train', palette='tab10')
+
+ax1.set_title('Latent space')
+plt.tight_layout()
+plt.axis('equal')
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:img/auto2_components.png]]
+
+Hence, the rules are
+ 
+| Digit | Rules                                        |
+|-------+----------------------------------------------|
+|     0 | c1<c2 and c3<2 and c2>c3 and c2>c4 and c3<c4 |
+|     1 | c2<2 and c3>4 and c4<c3                      |
+|     3 | c1>2 and c1>c3 and c1>c4 and c2>c3 and c2>c4 |
+|     9 | c1<c2 and c2>c3 and c2>c4 and c3>c4          |
+
+Now test these rules. You can start from a 0, and violate one of the
+conditions to see what digit that takes you to, as each condition is a
+decision boundary.
+
+#+name: auto2-rule
+#+begin_src python :file img/auto2_rule.png
 def my_tf_round(x, decimals = 0):
     multiplier = tf.constant(10**decimals, dtype=x.dtype)
     return tf.round(x * multiplier) / multiplier
 
-reference_indices = [1, 3, 17, 4]
-digit_names2 = [0,1,8,9]
-rules2 = autoencoder2.encode(x_train_norm[reference_indices])
-rules2 = my_tf_round(rules2, 2)
+digit_names2 = [0,1,3,9]
+# rules2 = np.array([[1,4,1,3], [1,1,6,3], [4, 3, 1, 3], [1,6,4,2]])
+rules2 = np.array([[1,4,1,3], [1,1,4,3], [5,4,1,3], [1,4,4,3]])
 decoded2 = tf.reshape(autoencoder2.decode(rules2), (4,28,28))
 
 fig, axes = plt.subplots(1,4, figsize=(8,3))
@@ -289,8 +431,12 @@ for ai, ax in enumerate(axes):
     ax.set_xticks([])
     ax.set_yticks([])
 
+plt.tight_layout()
 plt.show()
 #+end_src
 
-#+RESULTS:
-[[file:./.ob-jupyter/d11130cadcc61e529f211ddbe13e6c64b3e9b21a.png]]
+Here I've started from $[1,4,1,3]$, a zero and got the other three digits by crossing one of the boundaries.
+
+#+RESULTS: auto2-rule
+[[file:img/auto2_rule.png]]
+
