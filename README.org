@@ -10,4 +10,4 @@ Neural Network/ course at Chalmers.
 - Autoencoder :: An autoencoder trained on the MNIST dataset (though very small bottleleck!)
 - Reservoir computer :: Model for predicting the continuation time series of Lorent's system
 - Convolutional network :: Typical conv net trained on the MNIST dataset
-- Q learning :: Simple agent that uses a q table (no deepQ here) for playing tic tac toe
+
